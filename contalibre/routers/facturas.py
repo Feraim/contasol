@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..database import get_db
+from ..deps import get_db
 from ..services import facturas as svc
 
 router = APIRouter(prefix="/facturas", tags=["facturas"])

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..database import get_db
+from ..deps import get_db
 from ..services import cierre as svc
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])

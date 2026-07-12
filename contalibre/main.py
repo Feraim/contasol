@@ -6,15 +6,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .database import init_db
-from .routers import activos, aeat, asientos, bancos, cuentas, ejercicios, facturas, ia, informes, terceros
+from .database import init_control_db
+from .routers import (
+    activos,
+    aeat,
+    asientos,
+    auth,
+    bancos,
+    cuentas,
+    ejercicios,
+    empresas,
+    facturas,
+    ia,
+    informes,
+    terceros,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    init_control_db()
     yield
 
 
@@ -28,10 +41,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost", "http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(empresas.router, prefix="/api/v1")
 for router in (cuentas, asientos, terceros, facturas, activos, informes, ejercicios, aeat, bancos, ia):
     app.include_router(router.router, prefix="/api/v1")
 

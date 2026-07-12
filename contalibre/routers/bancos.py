@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..database import get_db
+from ..deps import get_db
 from ..services import conciliacion as svc
 
 router = APIRouter(prefix="/bancos", tags=["bancos"])

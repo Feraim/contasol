@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..database import get_db
+from ..deps import get_db
 from ..money import a_centimos
 from ..services import amortizacion as svc
 from ..services import asientos as svc_asientos

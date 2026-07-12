@@ -5,10 +5,16 @@
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
 
+let empresaActual = null; // id de la empresa activa
+let miPerfil = null; // { id, email, nombre, empresas: [{id, nombre, rol}] }
+
 async function api(path, opts = {}) {
+  const cabeceras = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (empresaActual != null) cabeceras["X-Empresa-Id"] = String(empresaActual);
   const res = await fetch("/api/v1" + path, {
-    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     ...opts,
+    headers: cabeceras,
   });
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
@@ -104,6 +110,12 @@ const RIBBON = [
     id: "bancos", label: "Bancos",
     grupos: [
       { etiqueta: "Conciliación", botones: [["🏦", "Conciliación bancaria", "bancos"]] },
+    ],
+  },
+  {
+    id: "empresa", label: "Empresa",
+    grupos: [
+      { etiqueta: "Administración", botones: [["👥", "Usuarios", "usuarios"]] },
     ],
   },
   {
@@ -1296,26 +1308,197 @@ vistas.bancos = async () => {
   await cargar();
 };
 
-/* ---------- arranque ---------- */
+/* ---------- Usuarios y empresas ---------- */
+
+vistas.usuarios = async () => {
+  const empresa = miPerfil.empresas.find((e) => e.id === empresaActual);
+  $("#area").innerHTML = ventana("👥", `Usuarios de ${esc(empresa.nombre)}`, `
+    <div class="toolbar">
+      <button id="us-invitar" ${empresa.rol === "admin" ? "" : "disabled"}>➕ Invitar usuario</button>
+      <span class="sep"></span>
+      <button id="us-nueva-empresa">🏢 Crear nueva empresa</button>
+    </div>
+    <div class="grid-wrap"><table class="grid" id="grid-usuarios"><thead>
+      <tr><th>Email</th><th>Rol</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="aviso">Solo un administrador puede invitar o quitar usuarios. El usuario invitado debe
+      tener ya una cuenta creada (pestaña "Crear cuenta" en el acceso) antes de poder añadirlo aquí.</p>`);
+
+  const cargar = async () => {
+    const lista = await api(`/empresas/${empresaActual}/usuarios`);
+    $("#grid-usuarios tbody").innerHTML = lista.map((u) => `<tr>
+      <td>${esc(u.email)}</td><td>${esc(u.rol)}</td>
+      <td>${empresa.rol === "admin" && u.email !== miPerfil.email
+        ? `<button class="secundario" onclick="quitarUsuarioGlobal(${u.usuario_id})">🗑 Quitar</button>` : ""}</td>
+      </tr>`).join("");
+  };
+
+  window.quitarUsuarioGlobal = async (usuarioId) => {
+    if (!confirm("¿Quitar a este usuario de la empresa?")) return;
+    try {
+      await api(`/empresas/${empresaActual}/usuarios/${usuarioId}`, { method: "DELETE" });
+      toast("Usuario eliminado"); cargar();
+    } catch (e) { fallo(e); }
+  };
+
+  $("#us-invitar").onclick = () => {
+    abrirModal("Invitar usuario", `
+      <form class="formulario" id="form-invitar">
+        <label class="ancho">Email del usuario ya registrado<input id="iv-email" type="email" required></label>
+        <label>Rol<select id="iv-rol"><option value="editor">Editor</option><option value="admin">Administrador</option></select></label>
+        <div class="botones-form ancho">
+          <button type="button" class="secundario" onclick="document.getElementById('modal').classList.add('oculto')">Cancelar</button>
+          <button type="submit" class="principal">Invitar</button>
+        </div>
+      </form>`);
+    $("#form-invitar").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api(`/empresas/${empresaActual}/usuarios`, {
+          method: "POST",
+          body: JSON.stringify({ email: $("#iv-email").value.trim(), rol: $("#iv-rol").value }),
+        });
+        toast("Usuario invitado"); cerrarModal(); cargar();
+      } catch (err) { fallo(err); }
+    };
+  };
+
+  $("#us-nueva-empresa").onclick = () => {
+    abrirModal("Crear nueva empresa", `
+      <form class="formulario" id="form-nueva-empresa">
+        <label class="ancho">Nombre de la empresa<input id="ne-nombre" required maxlength="150"></label>
+        <label class="ancho">NIF<input id="ne-nif" maxlength="20"></label>
+        <div class="botones-form ancho">
+          <button type="button" class="secundario" onclick="document.getElementById('modal').classList.add('oculto')">Cancelar</button>
+          <button type="submit" class="principal">Crear</button>
+        </div>
+      </form>`);
+    $("#form-nueva-empresa").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const nueva = await api("/empresas", {
+          method: "POST",
+          body: JSON.stringify({ nombre: $("#ne-nombre").value.trim(), nif: $("#ne-nif").value.trim() }),
+        });
+        miPerfil.empresas.push({ id: nueva.id, nombre: nueva.nombre, rol: "admin" });
+        empresaActual = nueva.id;
+        toast("Empresa creada"); cerrarModal();
+        pintarEmpresa();
+        await recargarCuentas();
+        await abrirVista("inicio");
+      } catch (err) { fallo(err); }
+    };
+  };
+
+  await cargar();
+};
+
+/* ---------- arranque y autenticación ---------- */
 
 function pintarEjercicio() {
   $("#titlebar-ejercicio").textContent = ejercicio;
   $("#status-ejercicio").textContent = `Ejercicio ${ejercicio}`;
 }
 
-(async () => {
+function pintarEmpresa() {
+  const empresa = miPerfil.empresas.find((e) => e.id === empresaActual);
+  if (!empresa) return;
+  $("#titlebar-empresa").textContent = empresa.nombre;
+  $("#status-empresa").textContent = empresa.nombre;
+  $("#sel-empresa").innerHTML = miPerfil.empresas
+    .map((e) => `<option value="${e.id}" ${e.id === empresaActual ? "selected" : ""}>${esc(e.nombre)}</option>`)
+    .join("");
+}
+
+function mostrarLogin() {
+  $("#pantalla-login").classList.remove("oculto");
+  $("#app").classList.add("oculto");
+}
+
+async function mostrarApp() {
+  $("#pantalla-login").classList.add("oculto");
+  $("#app").classList.remove("oculto");
+  pintarEmpresa();
   const actual = new Date().getFullYear();
   $("#sel-ejercicio").innerHTML = Array.from({ length: 8 }, (_, i) => actual + 1 - i)
     .map((a) => `<option value="${a}" ${a === ejercicio ? "selected" : ""}>${a}</option>`).join("");
-  $("#sel-ejercicio").onchange = (e) => {
-    ejercicio = parseInt(e.target.value, 10);
-    pintarEjercicio();
-    vistas[vistaActual]().catch(fallo);
-  };
   pintarEjercicio();
   pintarRibbon("inicio");
+  await recargarCuentas();
+  await abrirVista("inicio");
+}
+
+async function iniciarSesionComprobando() {
+  try {
+    miPerfil = await api("/auth/me");
+    if (!miPerfil.empresas.length) {
+      toast("Tu usuario no pertenece a ninguna empresa todavía", true);
+      mostrarLogin();
+      return;
+    }
+    empresaActual = miPerfil.empresas[0].id;
+    await mostrarApp();
+  } catch (e) {
+    mostrarLogin();
+  }
+}
+
+$$("#login-pestanas button").forEach((b) => {
+  b.onclick = () => {
+    $$("#login-pestanas button").forEach((x) => x.classList.remove("activo"));
+    b.classList.add("activo");
+    $("#form-login").classList.toggle("oculto", b.dataset.form !== "login");
+    $("#form-registro").classList.toggle("oculto", b.dataset.form !== "registro");
+  };
+});
+
+$("#form-login").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: $("#li-email").value.trim(), password: $("#li-password").value }),
+    });
+    await iniciarSesionComprobando();
+  } catch (err) { fallo(err); }
+};
+
+$("#form-registro").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("/auth/registro", {
+      method: "POST",
+      body: JSON.stringify({
+        email: $("#re-email").value.trim(),
+        password: $("#re-password").value,
+        nombre: $("#re-nombre").value.trim(),
+        empresa_nombre: $("#re-empresa").value.trim(),
+      }),
+    });
+    await iniciarSesionComprobando();
+  } catch (err) { fallo(err); }
+};
+
+$("#link-salir").onclick = async (e) => {
+  e.preventDefault();
+  try { await api("/auth/logout", { method: "POST" }); } catch { /* ignorar */ }
+  miPerfil = null;
+  empresaActual = null;
+  mostrarLogin();
+};
+
+$("#sel-empresa").onchange = async (e) => {
+  empresaActual = parseInt(e.target.value, 10);
+  pintarEmpresa();
   try {
     await recargarCuentas();
     await abrirVista("inicio");
-  } catch (e) { fallo(e); }
-})();
+  } catch (err) { fallo(err); }
+};
+
+$("#sel-ejercicio").onchange = (e) => {
+  ejercicio = parseInt(e.target.value, 10);
+  pintarEjercicio();
+  vistas[vistaActual]().catch(fallo);
+};
+
+iniciarSesionComprobando();

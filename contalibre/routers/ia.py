@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..database import get_db
+from ..deps import get_db
 
 router = APIRouter(prefix="/ia", tags=["ia"])
 

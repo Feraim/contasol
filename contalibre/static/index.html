@@ -8,31 +8,60 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23e8671b'/><text x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>CL</text></svg>">
 </head>
 <body>
-  <!-- Barra de título estilo aplicación de escritorio -->
-  <div id="titlebar">
-    <span id="titlebar-logo">CL</span>
-    <span id="titlebar-texto">ContaLibre — [ <b>EMPRESA DEMO</b> · Ejercicio <span id="titlebar-ejercicio"></span> ]</span>
-    <span id="titlebar-derecha">
-      <label>Ejercicio <select id="sel-ejercicio"></select></label>
-      <a href="/docs" target="_blank" title="Documentación de la API">API</a>
-    </span>
+  <!-- Pantalla de acceso (login / registro) -->
+  <div id="pantalla-login" class="oculto">
+    <div id="login-caja">
+      <div id="login-logo"><span id="titlebar-logo">CL</span> ContaLibre</div>
+      <div id="login-pestanas">
+        <button data-form="login" class="activo">Entrar</button>
+        <button data-form="registro">Crear cuenta</button>
+      </div>
+      <form id="form-login" class="formulario">
+        <label class="ancho">Email<input id="li-email" type="email" required autocomplete="username"></label>
+        <label class="ancho">Contraseña<input id="li-password" type="password" required autocomplete="current-password"></label>
+        <div class="botones-form ancho"><button type="submit" class="principal ancho">Entrar</button></div>
+      </form>
+      <form id="form-registro" class="formulario oculto">
+        <label class="ancho">Tu nombre<input id="re-nombre" maxlength="150"></label>
+        <label class="ancho">Email<input id="re-email" type="email" required autocomplete="username"></label>
+        <label class="ancho">Contraseña (mín. 8 caracteres)<input id="re-password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label class="ancho">Nombre de la empresa<input id="re-empresa" required maxlength="150"></label>
+        <div class="botones-form ancho"><button type="submit" class="principal ancho">Crear cuenta y empresa</button></div>
+      </form>
+      <p class="aviso">Todo se guarda en local, en tu propia máquina. Cada empresa tiene su propia base de datos aislada.</p>
+    </div>
   </div>
 
-  <!-- Cinta de opciones -->
-  <div id="ribbon">
-    <div id="ribbon-tabs"></div>
-    <div id="ribbon-cuerpo"></div>
-  </div>
+  <!-- Aplicación -->
+  <div id="app" class="oculto">
+    <!-- Barra de título estilo aplicación de escritorio -->
+    <div id="titlebar">
+      <span id="titlebar-logo">CL</span>
+      <span id="titlebar-texto">ContaLibre — [ <b id="titlebar-empresa">EMPRESA</b> · Ejercicio <span id="titlebar-ejercicio"></span> ]</span>
+      <span id="titlebar-derecha">
+        <label>Empresa <select id="sel-empresa"></select></label>
+        <label>Ejercicio <select id="sel-ejercicio"></select></label>
+        <a href="/docs" target="_blank" title="Documentación de la API">API</a>
+        <a href="#" id="link-salir" title="Cerrar sesión">Salir</a>
+      </span>
+    </div>
 
-  <!-- Área de trabajo -->
-  <main id="area"></main>
+    <!-- Cinta de opciones -->
+    <div id="ribbon">
+      <div id="ribbon-tabs"></div>
+      <div id="ribbon-cuerpo"></div>
+    </div>
 
-  <!-- Barra de estado -->
-  <div id="statusbar">
-    <span>EMPRESA DEMO</span>
-    <span id="status-ejercicio"></span>
-    <span id="status-info">Base de datos SQLite local</span>
-    <span style="margin-left:auto">ContaLibre v0.1.0 · código abierto (MIT)</span>
+    <!-- Área de trabajo -->
+    <main id="area"></main>
+
+    <!-- Barra de estado -->
+    <div id="statusbar">
+      <span id="status-empresa">EMPRESA</span>
+      <span id="status-ejercicio"></span>
+      <span id="status-info">Base de datos SQLite local</span>
+      <span style="margin-left:auto">ContaLibre v0.1.0 · código abierto (MIT)</span>
+    </div>
   </div>
 
   <div id="modal" class="oculto"><div id="modal-caja"><div id="modal-titulo"><span id="modal-titulo-texto"></span><button id="modal-cerrar">✕</button></div><div id="modal-contenido"></div></div></div>

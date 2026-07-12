@@ -1,21 +1,28 @@
-import os
 import tempfile
-
-# La BD de pruebas debe fijarse antes de importar el paquete.
-os.environ["CONTALIBRE_DB"] = os.path.join(tempfile.mkdtemp(), "contalibre_test.db")
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from contalibre.database import Base, engine, init_db
+from contalibre import database
 from contalibre.main import app
 
 
 @pytest.fixture()
 def client():
-    Base.metadata.drop_all(engine)
-    init_db()
+    database.reset_para_pruebas(Path(tempfile.mkdtemp()))
+    database.init_control_db()
     with TestClient(app) as c:
+        r = c.post(
+            "/api/v1/auth/registro",
+            json={
+                "email": "demo@contalibre.local",
+                "password": "password1234",
+                "nombre": "Usuaria Demo",
+                "empresa_nombre": "Empresa Demo",
+            },
+        )
+        assert r.status_code == 201, r.text
         yield c
 
 
