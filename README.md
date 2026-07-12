@@ -50,6 +50,12 @@ El diseño anticipa un asistente de IA **local** que responda preguntas sobre tu
 3. Todo el tráfico queda en `localhost`: los datos contables nunca salen de tu máquina si el modelo es local.
 4. Como la API exige sesión, el asistente ve exactamente los datos de la empresa activa del usuario que lo invoca: nunca mezcla información entre empresas.
 
+## Documentación técnica
+
+[`docs/FUNCIONAMIENTO.md`](docs/FUNCIONAMIENTO.md) explica la arquitectura interna: por qué cada
+empresa tiene su propia base de datos, cómo encaja cada módulo (facturación, cierre de ejercicio,
+AEAT, conciliación bancaria...) y cómo está organizado el frontend.
+
 ## Estructura del proyecto
 
 ```
