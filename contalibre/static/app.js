@@ -78,6 +78,12 @@ const RIBBON = [
     ],
   },
   {
+    id: "asistente", label: "Asistente IA",
+    grupos: [
+      { etiqueta: "Preguntas", botones: [["🤖", "Preguntar a la IA", "asistente"]] },
+    ],
+  },
+  {
     id: "diario", label: "Diario",
     grupos: [
       { etiqueta: "Asientos", botones: [["📝", "Introducir asientos", "nuevoAsiento"], ["📖", "Consulta de diario", "diario"]] },
@@ -1421,6 +1427,94 @@ vistas.usuarios = async () => {
   };
 
   await cargar();
+};
+
+/* ---------- Asistente de IA ---------- */
+
+vistas.asistente = async () => {
+  const empresaNombre = miPerfil.empresas.find((e) => e.id === empresaActual)?.nombre || "";
+  $("#area").innerHTML = ventana("🤖", "Asistente de IA (local, vía Ollama)", `
+    <div id="ia-estado" class="aviso"></div>
+    <div id="ia-chat" style="display:flex;flex-direction:column;gap:10px;padding:10px;max-height:calc(100vh - 420px);overflow:auto"></div>
+    <div class="toolbar">
+      <input id="ia-pregunta" placeholder="Pregunta sobre tus datos contables…" style="flex:1;min-width:260px">
+      <button id="ia-enviar">➤ Enviar</button>
+      <button id="ia-limpiar" class="secundario">🧹 Nueva conversación</button>
+    </div>
+    <p class="aviso">El modelo solo puede consultar datos de <b>${esc(empresaNombre)}</b> a través de
+      herramientas de solo lectura; nunca modifica nada ni ve otras empresas.</p>`);
+
+  let historial = [];
+
+  const comprobarEstado = async () => {
+    const estado = await api("/ia/estado");
+    const div = $("#ia-estado");
+    if (!estado.disponible) {
+      div.innerHTML = `⚠️ Ollama no está disponible en <code>${esc(estado.url)}</code>. Instálalo desde
+        <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a>, asegúrate de que está en
+        marcha (<code>ollama serve</code>, normalmente automático) y descarga el modelo:
+        <code>ollama pull ${esc(estado.modelo)}</code>.`;
+      $("#ia-enviar").disabled = true;
+    } else if (!estado.modelo_descargado) {
+      div.innerHTML = `⚠️ Ollama está en marcha pero el modelo <code>${esc(estado.modelo)}</code> no está
+        descargado. Ejecuta <code>ollama pull ${esc(estado.modelo)}</code>.
+        ${estado.modelos_descargados.length ? "Descargados: " + estado.modelos_descargados.map(esc).join(", ") : ""}`;
+      $("#ia-enviar").disabled = true;
+    } else {
+      div.innerHTML = `✓ Conectado a Ollama (<code>${esc(estado.modelo)}</code>).`;
+      $("#ia-enviar").disabled = false;
+    }
+  };
+
+  const agregarMensaje = (rol, texto) => {
+    const burbuja = document.createElement("div");
+    burbuja.style.cssText = rol === "user"
+      ? "align-self:flex-end;background:var(--naranja-suave);border-radius:8px;padding:8px 12px;max-width:75%;white-space:pre-wrap"
+      : "align-self:flex-start;background:var(--chrome);border:1px solid var(--borde);border-radius:8px;padding:8px 12px;max-width:75%;white-space:pre-wrap";
+    burbuja.textContent = texto;
+    $("#ia-chat").appendChild(burbuja);
+    $("#ia-chat").scrollTop = $("#ia-chat").scrollHeight;
+  };
+
+  const enviar = async () => {
+    const pregunta = $("#ia-pregunta").value.trim();
+    if (!pregunta) return;
+    agregarMensaje("user", pregunta);
+    $("#ia-pregunta").value = "";
+    $("#ia-enviar").disabled = true;
+    const pensando = document.createElement("div");
+    pensando.className = "aviso";
+    pensando.style.padding = "0";
+    pensando.textContent = "Pensando… (puede tardar si el modelo corre en CPU)";
+    $("#ia-chat").appendChild(pensando);
+    $("#ia-chat").scrollTop = $("#ia-chat").scrollHeight;
+    try {
+      const r = await api("/ia/preguntar", { method: "POST", body: JSON.stringify({ pregunta, historial }) });
+      pensando.remove();
+      agregarMensaje("assistant", r.respuesta);
+      historial.push({ role: "user", content: pregunta }, { role: "assistant", content: r.respuesta });
+      if (r.herramientas_usadas.length) {
+        const detalle = document.createElement("div");
+        detalle.className = "aviso";
+        detalle.style.cssText = "padding:0;align-self:flex-start";
+        detalle.textContent = "🔎 Consultado: " + r.herramientas_usadas.map((h) => h.herramienta).join(", ");
+        $("#ia-chat").appendChild(detalle);
+      }
+    } catch (e) {
+      pensando.remove();
+      fallo(e);
+    } finally {
+      $("#ia-enviar").disabled = false;
+      $("#ia-pregunta").focus();
+    }
+  };
+
+  $("#ia-enviar").onclick = enviar;
+  $("#ia-pregunta").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); enviar(); } };
+  $("#ia-limpiar").onclick = () => { historial = []; $("#ia-chat").innerHTML = ""; };
+
+  await comprobarEstado();
+  $("#ia-pregunta").focus();
 };
 
 /* ---------- arranque y autenticación ---------- */

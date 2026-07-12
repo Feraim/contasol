@@ -295,13 +295,57 @@ de cookies, igual que dos navegadores distintos).
 |---|---|---|
 | `CONTALIBRE_DATA` | `contalibre_data` | Directorio con `control.db` y `empresas/*.db` |
 | `CONTALIBRE_DB` | `contalibre.db` | Solo se lee para la migración de instalaciones antiguas (ver §2) |
+| `OLLAMA_URL` | `http://localhost:11434` | Dónde buscar el servidor Ollama del asistente de IA |
+| `OLLAMA_MODEL` | `qwen2.5` | Modelo a usar (debe soportar tool calling) |
 
-## 8. Puntos de extensión para un asistente de IA
+## 8. Asistente de IA (`ollama_client.py`, `services/ia_tools.py`, `services/asistente.py`)
 
-`routers/ia.py::GET /api/v1/ia/contexto` devuelve un JSON pensado como
-*system prompt*: esquema de datos, convenciones (céntimos, códigos de
-cuenta, partida doble), catálogo de endpoints de consulta y estadísticas en
-vivo (nº de asientos, fechas cubiertas...). Como pasa por `Depends(get_db)`
-igual que cualquier otro endpoint, un modelo que llame a esta API **ya
-opera dentro del aislamiento multiempresa**: solo puede ver y tocar los
-datos de la empresa activa de la sesión que lo invoca.
+El asistente es un bucle de *tool calling* clásico, sin ningún framework de
+agentes: la orquestación cabe en unas 50 líneas (`services/asistente.py`).
+
+```
+Usuario escribe una pregunta
+        │
+        ▼
+services/asistente.py::responder(db, pregunta, historial)
+        │  construye [system, ...historial, user] y llama a Ollama con
+        │  la lista de herramientas (TOOL_SCHEMAS)
+        ▼
+ollama_client.chat(mensajes, tools)  ── POST /api/chat a Ollama
+        │
+        ├─ el modelo responde con tool_calls  ──► ia_tools.ejecutar_tool(db, nombre, args)
+        │        (se añade el resultado como mensaje role="tool" y se       │
+        │         vuelve a llamar a Ollama)                    ◄────────────┘
+        │
+        └─ el modelo responde sin tool_calls  ──► esa es la respuesta final
+```
+
+- **`services/ia_tools.py`** define 16 herramientas de solo lectura
+  (`listar_facturas`, `informe_balance_situacion`, `modelo_aeat_303`...),
+  cada una un envoltorio fino sobre una consulta ya existente (las mismas
+  que usan los routers, o directamente las funciones de `services/`). Cada
+  herramienta declara su propio JSON Schema (`TOOL_SCHEMAS`) y se ejecuta a
+  través de `ejecutar_tool`, que **nunca lanza**: cualquier error se
+  convierte en `{"error": "..."}` para que el modelo pueda leerlo y
+  reformular la llamada en vez de romper la conversación.
+- La `db` que reciben las herramientas es la misma sesión, ya ligada a la
+  empresa activa, que usa el resto de la aplicación (`Depends(get_db)` en
+  `routers/ia.py::POST /preguntar`) — el asistente **no puede** escapar del
+  aislamiento multiempresa, ni aunque el modelo "alucine" una llamada rara:
+  como mucho consulta datos de otra cuenta dentro de la misma empresa.
+- `MAX_ITERACIONES = 6` en `asistente.py` evita que un modelo que se quede
+  pidiendo herramientas en bucle cuelgue la petición para siempre.
+- **`ollama_client.py`** es un cliente HTTP mínimo (no un SDK): solo cubre
+  `/api/chat` (con tools) y `/api/tags` (para `GET /ia/estado`, que informa
+  a la interfaz si Ollama está en marcha y si el modelo configurado está
+  descargado). ContaLibre nunca instala ni arranca Ollama por su cuenta.
+
+### Por qué no se testea con un modelo real
+
+Los tests (`tests/test_asistente.py`) sustituyen `ollama_client.chat` por
+una función de prueba (`monkeypatch`) que simula las respuestas de un
+modelo — así se verifica el bucle de tool calling y que las herramientas
+devuelven datos reales de la empresa activa, sin depender de tener Ollama
+instalado ni de la latencia/variabilidad de un LLM real. `GET /ia/estado` y
+`POST /ia/preguntar` sin Ollama en marcha también están cubiertos (deben
+degradar con un mensaje claro, no reventar).

@@ -1,6 +1,6 @@
 # 📒 ContaLibre
 
-**Contabilidad de código abierto para pymes y autónomos (España)**, inspirada en ContaSol. Todo funciona **en local**: servidor FastAPI + base de datos SQLite + interfaz web, sin nube. Soporta varias empresas y varios usuarios, cada uno con su sesión y su rol, pero todos los datos se quedan en tu máquina. La API REST está pensada para que, en el futuro, un modelo de IA local consulte los datos contables.
+**Contabilidad de código abierto para pymes y autónomos (España)**, inspirada en ContaSol. Todo funciona **en local**: servidor FastAPI + base de datos SQLite + interfaz web, sin nube. Soporta varias empresas y varios usuarios, cada uno con su sesión y su rol, pero todos los datos se quedan en tu máquina. Incluye un asistente de IA (vía [Ollama](https://ollama.com), local) que responde preguntas sobre tus propios datos contables.
 
 ## Características
 
@@ -16,6 +16,7 @@
 - **Conciliación bancaria**: importación de extractos en formato cuaderno 43 de la AEB, conciliación automática por fecha e importe contra los apuntes existentes de la cuenta de tesorería, y conciliación manual (contra un apunte ya contabilizado o creando un asiento nuevo) para lo que no casa solo.
 - **Multiempresa y usuarios**: cada empresa tiene su propia base de datos SQLite, completamente aislada de las demás (ni una consulta puede filtrar mal y mezclar datos: son ficheros distintos). Login por email/contraseña con protección contra fuerza bruta (bloqueo temporal tras varios intentos fallidos) y caducidad de sesión de 30 días comprobada en el servidor, no solo en la cookie del navegador; recuperación de contraseña (token de un solo uso, válido 1 hora) y cambio de contraseña estando autenticado. Un usuario puede pertenecer a varias empresas y cambiar entre ellas. Roles por empresa: **admin** (puede invitar/quitar usuarios y descargar la copia de seguridad) y **editor** (puede operar pero no gestionar usuarios).
 - **Copia de seguridad bajo demanda**: cualquier administrador puede descargar en un clic un `.zip` con una instantánea consistente de los datos de su empresa (usa la API de backup de SQLite, no una copia de fichero en caliente).
+- **Asistente de IA local**: pestaña de chat que responde preguntas sobre tus datos ("¿qué clientes me deben dinero?", "¿cuánto IVA tengo que pagar este trimestre?") usando [Ollama](https://ollama.com) con *tool calling* contra 16 herramientas de solo lectura (facturas, asientos, informes, modelos AEAT, bancos...). El modelo nunca ve ni modifica nada fuera de la empresa activa de tu sesión, y todo el tráfico queda en `localhost`.
 - **API REST** completa y documentada (OpenAPI en `/docs`).
 
 ## Instalación y arranque
@@ -42,14 +43,33 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Integración con IA (hoja de ruta)
+## Asistente de IA
 
-El diseño anticipa un asistente de IA **local** que responda preguntas sobre tus datos ("¿cuánto IVA tengo que pagar este trimestre?", "¿qué clientes me deben dinero?"):
+Responde preguntas sobre tus datos contables usando un modelo que corre **en tu máquina** vía
+[Ollama](https://ollama.com):
 
-1. `GET /api/v1/ia/contexto` devuelve el esquema de datos, las convenciones contables y el catálogo de endpoints de consulta: es el *system prompt* que necesita el modelo.
-2. El modelo (Ollama, llama.cpp, o la API de Claude/otros) usa *tool calling* contra los endpoints REST (`/informes/*`, `/facturas`, `/asientos`…) para obtener los datos y responder.
-3. Todo el tráfico queda en `localhost`: los datos contables nunca salen de tu máquina si el modelo es local.
-4. Como la API exige sesión, el asistente ve exactamente los datos de la empresa activa del usuario que lo invoca: nunca mezcla información entre empresas.
+```bash
+# 1. Instala Ollama (https://ollama.com/download) y descarga un modelo con soporte de tool calling
+ollama pull qwen2.5
+
+# 2. Arranca ContaLibre normalmente; Ollama suele quedar arrancado como servicio
+contalibre
+```
+
+Abre la pestaña **Asistente IA** en la interfaz. Si Ollama no está en marcha o el modelo no está
+descargado, la propia pantalla te lo indica con los comandos exactos a ejecutar.
+
+Por defecto se conecta a `http://localhost:11434` y usa el modelo `qwen2.5`; puedes cambiarlo con las
+variables de entorno `OLLAMA_URL` y `OLLAMA_MODEL` (por ejemplo, para usar `llama3.1` o un servidor
+Ollama en otra máquina de tu red local).
+
+**Cómo funciona por dentro**: `GET /api/v1/ia/contexto` expone el esquema de datos y las convenciones
+contables; `POST /api/v1/ia/preguntar` orquesta la conversación — el modelo decide qué herramientas de
+solo lectura llamar (facturas, asientos, informes, modelos AEAT, movimientos bancarios...), la API las
+ejecuta contra los datos reales y se las devuelve, y el modelo elabora la respuesta final. Como pasa por
+la sesión autenticada de siempre, el asistente solo ve los datos de la empresa activa: nunca mezcla
+información entre empresas, y nunca modifica nada (todas las herramientas son de solo lectura). Todo el
+tráfico queda en `localhost` si el modelo es local.
 
 ## Documentación técnica
 
@@ -65,9 +85,12 @@ contalibre/
 ├── models_control.py  # Modelos de control: Empresa, Usuario, Membresia, Sesion (base compartida)
 ├── auth.py            # Hash de contraseñas y tokens de sesión (sin dependencias externas)
 ├── deps.py            # Resuelve el usuario y la empresa activa a partir de la sesión
+├── ollama_client.py   # Cliente HTTP mínimo para un servidor Ollama local
 ├── pgc.py             # Cuentas de arranque del PGC PYMES
-├── services/          # Lógica contable (asientos, facturas, amortización, informes, cierre, aeat, conciliación)
-├── routers/           # API REST /api/v1 (incluye auth.py, empresas.py e ia.py: contexto para LLM)
+├── services/          # Lógica contable (asientos, facturas, amortización, informes, cierre, aeat,
+│                         conciliación) + ia_tools.py (herramientas del asistente) y asistente.py
+│                         (bucle de tool calling)
+├── routers/           # API REST /api/v1 (incluye auth.py, empresas.py e ia.py: asistente de IA)
 ├── main.py            # Aplicación FastAPI + servidor de la interfaz
 └── static/            # Interfaz web (vanilla JS, sin dependencias)
 ```
@@ -76,6 +99,7 @@ contalibre/
 
 - La recuperación de contraseña no envía email (esta app no tiene servidor de correo, es local): el token se muestra en la consola donde se ejecuta el servidor, pensado para que lo lea quien tiene acceso a esa máquina.
 - El límite de intentos de login es en memoria (por proceso); si se ejecutan varios workers detrás de un balanceador, cada uno lleva su propio contador.
+- El asistente de IA depende de que tengas Ollama instalado y en marcha; sin él, la pestaña muestra cómo instalarlo pero no puede responder preguntas. La calidad de las respuestas depende del modelo que elijas.
 
 > ⚠️ ContaLibre es una herramienta de gestión; no constituye asesoramiento fiscal ni contable.
 

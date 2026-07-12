@@ -208,6 +208,16 @@ class MovimientoBancarioOut(BaseModel):
     apunte_id: int | None
 
 
+class PreguntarIn(BaseModel):
+    pregunta: str = Field(min_length=1, max_length=2000)
+    historial: list[dict] = Field(default_factory=list)
+
+
+class PreguntarOut(BaseModel):
+    respuesta: str
+    herramientas_usadas: list[dict]
+
+
 class EjercicioOut(BaseModel):
     anio: int
     abierto: bool
