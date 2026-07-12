@@ -71,11 +71,15 @@ la sesión autenticada de siempre, el asistente solo ve los datos de la empresa 
 información entre empresas, y nunca modifica nada (todas las herramientas son de solo lectura). Todo el
 tráfico queda en `localhost` si el modelo es local.
 
-## Documentación técnica
+## Documentación
 
-[`docs/FUNCIONAMIENTO.md`](docs/FUNCIONAMIENTO.md) explica la arquitectura interna: por qué cada
-empresa tiene su propia base de datos, cómo encaja cada módulo (facturación, cierre de ejercicio,
-AEAT, conciliación bancaria...) y cómo está organizado el frontend.
+- [`docs/MANUAL.md`](docs/MANUAL.md) — **manual de usuario**: guía paso a paso de todas las pantallas
+  y funciones (diario, facturación, inmovilizado, informes, cierre de ejercicio, modelos AEAT,
+  conciliación bancaria, multiempresa, asistente de IA...) y solución de problemas habituales.
+- [`docs/API.md`](docs/API.md) — **referencia de la API REST**: todos los endpoints por recurso, con
+  parámetros y ejemplos (la especificación interactiva completa siempre está en `/docs`).
+- [`docs/FUNCIONAMIENTO.md`](docs/FUNCIONAMIENTO.md) — **arquitectura interna**: por qué cada empresa
+  tiene su propia base de datos, cómo encaja cada módulo y cómo está organizado el frontend.
 
 ## Estructura del proyecto
 

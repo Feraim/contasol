@@ -189,8 +189,8 @@ function conSeleccion(idTabla, botones, alAbrir) {
 
 function tablaApuntes(apuntes) {
   return `<table class="grid"><thead>
-    <tr><th>Cuenta</th><th>Título</th><th>Concepto</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead><tbody>
-    ${apuntes.map((a) => `<tr><td>${esc(a.cuenta)}</td><td>${esc(a.cuenta_nombre)}</td><td>${esc(a.concepto)}</td>
+    <tr><th>Id</th><th>Cuenta</th><th>Título</th><th>Concepto</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead><tbody>
+    ${apuntes.map((a) => `<tr><td>${a.id}</td><td>${esc(a.cuenta)}</td><td>${esc(a.cuenta_nombre)}</td><td>${esc(a.concepto)}</td>
       <td class="num">${a.debe ? eur(a.debe) : ""}</td><td class="num">${a.haber ? eur(a.haber) : ""}</td></tr>`).join("")}
   </tbody></table>`;
 }
