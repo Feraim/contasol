@@ -18,6 +18,7 @@ contalibre/routers/__init__.py
 contalibre/routers/activos.py
 contalibre/routers/asientos.py
 contalibre/routers/cuentas.py
+contalibre/routers/ejercicios.py
 contalibre/routers/facturas.py
 contalibre/routers/ia.py
 contalibre/routers/informes.py
@@ -25,6 +26,7 @@ contalibre/routers/terceros.py
 contalibre/services/__init__.py
 contalibre/services/amortizacion.py
 contalibre/services/asientos.py
+contalibre/services/cierre.py
 contalibre/services/facturas.py
 contalibre/services/informes.py
 contalibre/static/app.js
@@ -32,5 +34,6 @@ contalibre/static/index.html
 contalibre/static/styles.css
 tests/test_amortizacion.py
 tests/test_asientos.py
+tests/test_cierre.py
 tests/test_facturas.py
 tests/test_informes.py
