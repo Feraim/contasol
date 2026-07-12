@@ -8,8 +8,12 @@ para uso local/mono-servidor, no para exposición pública en Internet.
 import hashlib
 import hmac
 import secrets
+from datetime import timedelta
 
 _ITERACIONES = 260_000
+
+DURACION_SESION = timedelta(days=30)
+DURACION_RESET_PASSWORD = timedelta(hours=1)
 
 
 def hash_password(password: str) -> str:

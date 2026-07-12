@@ -937,7 +937,7 @@ vistas.balance = async () => {
       </tbody></table></div>
       <div class="pie-ventana">
         <span>${b.cuadrado ? "✓ El balance cuadra" : "⚠ El balance NO cuadra"}</span>
-        <span class="aviso" style="padding:0">Clasificación orientativa por prefijos de cuenta.</span>
+        <span class="aviso" style="padding:0">Estructura oficial del balance de situación abreviado (PGC).</span>
       </div>`;
   };
   $("#b-generar").onclick = () => generar().catch(fallo);
@@ -1317,6 +1317,9 @@ vistas.usuarios = async () => {
       <button id="us-invitar" ${empresa.rol === "admin" ? "" : "disabled"}>➕ Invitar usuario</button>
       <span class="sep"></span>
       <button id="us-nueva-empresa">🏢 Crear nueva empresa</button>
+      <span class="sep"></span>
+      <button id="us-cambiar-password">🔑 Cambiar mi contraseña</button>
+      <button id="us-backup" ${empresa.rol === "admin" ? "" : "disabled"}>💾 Descargar copia de seguridad</button>
     </div>
     <div class="grid-wrap"><table class="grid" id="grid-usuarios"><thead>
       <tr><th>Email</th><th>Rol</th><th></th></tr></thead><tbody></tbody></table></div>
@@ -1389,6 +1392,34 @@ vistas.usuarios = async () => {
     };
   };
 
+  $("#us-cambiar-password").onclick = () => {
+    abrirModal("Cambiar mi contraseña", `
+      <form class="formulario" id="form-cambiar-password">
+        <label class="ancho">Contraseña actual<input id="cp-actual" type="password" required autocomplete="current-password"></label>
+        <label class="ancho">Contraseña nueva (mín. 8 caracteres)<input id="cp-nueva" type="password" required minlength="8" autocomplete="new-password"></label>
+        <div class="botones-form ancho">
+          <button type="button" class="secundario" onclick="document.getElementById('modal').classList.add('oculto')">Cancelar</button>
+          <button type="submit" class="principal">Cambiar contraseña</button>
+        </div>
+      </form>`);
+    $("#form-cambiar-password").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api("/auth/password", {
+          method: "PUT",
+          body: JSON.stringify({
+            password_actual: $("#cp-actual").value, password_nueva: $("#cp-nueva").value,
+          }),
+        });
+        toast("Contraseña actualizada"); cerrarModal();
+      } catch (err) { fallo(err); }
+    };
+  };
+
+  $("#us-backup").onclick = () => {
+    window.open(`/api/v1/empresas/${empresaActual}/exportar`, "_blank");
+  };
+
   await cargar();
 };
 
@@ -1412,6 +1443,7 @@ function pintarEmpresa() {
 function mostrarLogin() {
   $("#pantalla-login").classList.remove("oculto");
   $("#app").classList.add("oculto");
+  mostrarFormularioLogin("login");
 }
 
 async function mostrarApp() {
@@ -1442,13 +1474,15 @@ async function iniciarSesionComprobando() {
   }
 }
 
+const FORMULARIOS_LOGIN = ["login", "registro", "olvide", "restablecer"];
+
+function mostrarFormularioLogin(nombre) {
+  FORMULARIOS_LOGIN.forEach((f) => $(`#form-${f}`).classList.toggle("oculto", f !== nombre));
+  $$("#login-pestanas button").forEach((b) => b.classList.toggle("activo", b.dataset.form === nombre));
+}
+
 $$("#login-pestanas button").forEach((b) => {
-  b.onclick = () => {
-    $$("#login-pestanas button").forEach((x) => x.classList.remove("activo"));
-    b.classList.add("activo");
-    $("#form-login").classList.toggle("oculto", b.dataset.form !== "login");
-    $("#form-registro").classList.toggle("oculto", b.dataset.form !== "registro");
-  };
+  b.onclick = () => mostrarFormularioLogin(b.dataset.form);
 });
 
 $("#form-login").onsubmit = async (e) => {
@@ -1475,6 +1509,35 @@ $("#form-registro").onsubmit = async (e) => {
       }),
     });
     await iniciarSesionComprobando();
+  } catch (err) { fallo(err); }
+};
+
+$("#link-olvide").onclick = (e) => {
+  e.preventDefault();
+  mostrarFormularioLogin("olvide");
+};
+
+$("#form-olvide").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const r = await api("/auth/olvide-password", {
+      method: "POST",
+      body: JSON.stringify({ email: $("#ol-email").value.trim() }),
+    });
+    toast(r.mensaje);
+    mostrarFormularioLogin("restablecer");
+  } catch (err) { fallo(err); }
+};
+
+$("#form-restablecer").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("/auth/restablecer-password", {
+      method: "POST",
+      body: JSON.stringify({ token: $("#rs-token").value.trim(), password_nueva: $("#rs-password").value }),
+    });
+    toast("Contraseña restablecida, ya puedes entrar");
+    mostrarFormularioLogin("login");
   } catch (err) { fallo(err); }
 };
 

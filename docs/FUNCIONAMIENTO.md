@@ -101,10 +101,34 @@ pequeño en proporción a su alcance.
   32 bytes — todo con `hashlib`/`secrets` de la librería estándar, sin
   dependencias externas.
 - Sesión = cookie `contalibre_sesion` (`httponly`, `samesite=lax`, 30 días).
-  El token se guarda en la tabla `sesiones` de `control.db`.
+  El token se guarda en la tabla `sesiones` de `control.db`, y
+  `deps.py::usuario_actual` comprueba `sesion.creada` contra
+  `auth.DURACION_SESION` **en el servidor** en cada petición — no basta con
+  que la cookie caduque en el navegador, una sesión vieja se borra y se
+  rechaza aunque alguien reenvíe el token a mano.
+- `contalibre/ratelimit.py`: bloqueo temporal (5 intentos / 15 minutos, en
+  memoria) por email tras logins fallidos consecutivos; se limpia en un
+  login correcto.
+- Recuperación de contraseña (`routers/auth.py`): como la app es local y no
+  tiene servidor de correo, `POST /auth/olvide-password` genera un token de
+  un solo uso (tabla `restablecimientos_password`, caduca en 1 hora) y lo
+  escribe en el **log del servidor** en vez de enviarlo por email — solo
+  quien tiene acceso a la máquina donde corre `contalibre` puede leerlo.
+  `POST /auth/restablecer-password` consume el token y cierra todas las
+  sesiones activas del usuario (`_invalidar_sesiones`). Estando ya
+  autenticado, `PUT /auth/password` cambia la contraseña sin pasar por un
+  token.
 - Un usuario puede pertenecer a varias empresas (tabla `membresias`, con rol
   `admin` o `editor`); el frontend cambia de empresa activa enviando la
   cabecera `X-Empresa-Id` en cada petición.
+
+### Copia de seguridad bajo demanda
+
+`GET /api/v1/empresas/{id}/exportar` (solo admin) usa la API de backup de
+`sqlite3` (`services/backup.py`) para copiar la base de datos de una
+empresa a un fichero temporal de forma consistente — no es una copia de
+fichero en caliente, que podría corromperse si hay una escritura en curso —
+y la devuelve comprimida en un `.zip`.
 
 ### Migración desde una instalación de un solo fichero
 
@@ -160,9 +184,17 @@ absorción del redondeo en el último ejercicio del plan
 
 Todos parten de `_saldos()`, que suma debe/haber por cuenta en un rango de
 fechas. A partir de ahí: libro mayor, sumas y saldos, pérdidas y ganancias
-(grupos 6/7), balance de situación (clasificación **orientativa** por
-prefijo de cuenta — ver limitaciones del README) y resumen de IVA por
-trimestre.
+(grupos 6/7) y resumen de IVA por trimestre.
+
+El **balance de situación** clasifica cada cuenta en el epígrafe oficial del
+balance abreviado del PGC (`_SECCIONES_ACTIVO`/`_SECCIONES_PASIVO` en
+`informes.py`): A) Activo no corriente / B) Activo corriente con sus
+apartados I-VII, y A) Patrimonio neto / B) Pasivo no corriente / C) Pasivo
+corriente con los suyos. La clasificación sigue siendo por prefijo de
+código de cuenta (coincidencia más larga gana, igual que antes), pero ahora
+cubre la estructura oficial completa en vez de una agrupación simplificada;
+una cuenta que no encaje en ningún epígrafe cae en un cajón "sin
+clasificar" del lado que le corresponda por signo de su saldo.
 
 ### 4.4 Cierre y apertura de ejercicio (`services/cierre.py`)
 

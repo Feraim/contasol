@@ -44,3 +44,13 @@ class Sesion(Base):
     token: Mapped[str] = mapped_column(String(64), primary_key=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
     creada: Mapped[datetime] = mapped_column(DateTime)
+
+
+class RestablecimientoPassword(Base):
+    """Token temporal para restablecer una contraseña olvidada."""
+
+    __tablename__ = "restablecimientos_password"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    creado: Mapped[datetime] = mapped_column(DateTime)

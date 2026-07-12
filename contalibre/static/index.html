@@ -20,6 +20,7 @@
         <label class="ancho">Email<input id="li-email" type="email" required autocomplete="username"></label>
         <label class="ancho">Contraseña<input id="li-password" type="password" required autocomplete="current-password"></label>
         <div class="botones-form ancho"><button type="submit" class="principal ancho">Entrar</button></div>
+        <p class="ancho" style="text-align:center;padding:0"><a href="#" id="link-olvide">¿Olvidaste tu contraseña?</a></p>
       </form>
       <form id="form-registro" class="formulario oculto">
         <label class="ancho">Tu nombre<input id="re-nombre" maxlength="150"></label>
@@ -27,6 +28,17 @@
         <label class="ancho">Contraseña (mín. 8 caracteres)<input id="re-password" type="password" required minlength="8" autocomplete="new-password"></label>
         <label class="ancho">Nombre de la empresa<input id="re-empresa" required maxlength="150"></label>
         <div class="botones-form ancho"><button type="submit" class="principal ancho">Crear cuenta y empresa</button></div>
+      </form>
+      <form id="form-olvide" class="formulario oculto">
+        <p class="ancho aviso" style="padding:0">Se generará un token de restablecimiento en la consola donde se
+          ejecuta el servidor (esta app no envía emails: es local).</p>
+        <label class="ancho">Email<input id="ol-email" type="email" required autocomplete="username"></label>
+        <div class="botones-form ancho"><button type="submit" class="principal ancho">Solicitar token</button></div>
+      </form>
+      <form id="form-restablecer" class="formulario oculto">
+        <label class="ancho">Token recibido<input id="rs-token" required></label>
+        <label class="ancho">Contraseña nueva (mín. 8 caracteres)<input id="rs-password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <div class="botones-form ancho"><button type="submit" class="principal ancho">Restablecer contraseña</button></div>
       </form>
       <p class="aviso">Todo se guarda en local, en tu propia máquina. Cada empresa tiene su propia base de datos aislada.</p>
     </div>

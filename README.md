@@ -9,12 +9,13 @@
 - **Terceros**: clientes y proveedores con creación automática de subcuentas `430xxxx` / `400xxxx`.
 - **Facturación**: facturas emitidas y recibidas con varias líneas y tipos de IVA (21/10/4/0 %), retenciones IRPF, asiento automático, cobro/pago con un clic.
 - **Inmovilizado**: fichas de activos con amortización lineal (prorrateo por días el primer año, ajuste de redondeo en el último) y asientos de dotación automáticos.
-- **Informes**: libro mayor, balance de sumas y saldos, pérdidas y ganancias, balance de situación y resumen de IVA trimestral estilo modelo 303.
+- **Informes**: libro mayor, balance de sumas y saldos, pérdidas y ganancias, balance de situación (con la estructura oficial de epígrafes del balance abreviado del PGC: activo no corriente/corriente, patrimonio neto, pasivo no corriente/corriente) y resumen de IVA trimestral estilo modelo 303.
 - **Cierre y apertura de ejercicio**: regularización automática de las cuentas de gastos e ingresos (grupos 6/7) contra la 129, asiento de cierre que salda el resto de cuentas patrimoniales y asiento de apertura que reabre esos saldos en el ejercicio siguiente. Cierre secuencial obligatorio (no se puede cerrar un año sin haber cerrado y abierto los anteriores) y deshacer disponible mientras no se haya abierto/cerrado el ejercicio contiguo. Bloquea la creación o eliminación de asientos en ejercicios ya cerrados.
 - **Modelos AEAT simplificados**: 303 (liquidación trimestral de IVA por casillas), 390 (resumen anual agregando los cuatro trimestres) y 347 (operaciones con terceros que superan 3.005,06 € anuales, con desglose trimestral). No cubren todos los regímenes/claves del formulario oficial (ver aviso en cada informe) y no sustituyen la presentación real ante la AEAT.
 - **Exportación a PDF y Excel**: todos los informes (mayor, sumas y saldos, pérdidas y ganancias, balance) y los tres modelos AEAT se pueden descargar en PDF o Excel (`?formato=pdf|excel` en la API, botones en la interfaz).
 - **Conciliación bancaria**: importación de extractos en formato cuaderno 43 de la AEB, conciliación automática por fecha e importe contra los apuntes existentes de la cuenta de tesorería, y conciliación manual (contra un apunte ya contabilizado o creando un asiento nuevo) para lo que no casa solo.
-- **Multiempresa y usuarios**: cada empresa tiene su propia base de datos SQLite, completamente aislada de las demás (ni una consulta puede filtrar mal y mezclar datos: son ficheros distintos). Login por email/contraseña, sesión mediante cookie; un usuario puede pertenecer a varias empresas y cambiar entre ellas. Roles por empresa: **admin** (puede invitar/quitar usuarios) y **editor** (puede operar pero no gestionar usuarios).
+- **Multiempresa y usuarios**: cada empresa tiene su propia base de datos SQLite, completamente aislada de las demás (ni una consulta puede filtrar mal y mezclar datos: son ficheros distintos). Login por email/contraseña con protección contra fuerza bruta (bloqueo temporal tras varios intentos fallidos) y caducidad de sesión de 30 días comprobada en el servidor, no solo en la cookie del navegador; recuperación de contraseña (token de un solo uso, válido 1 hora) y cambio de contraseña estando autenticado. Un usuario puede pertenecer a varias empresas y cambiar entre ellas. Roles por empresa: **admin** (puede invitar/quitar usuarios y descargar la copia de seguridad) y **editor** (puede operar pero no gestionar usuarios).
+- **Copia de seguridad bajo demanda**: cualquier administrador puede descargar en un clic un `.zip` con una instantánea consistente de los datos de su empresa (usa la API de backup de SQLite, no una copia de fichero en caliente).
 - **API REST** completa y documentada (OpenAPI en `/docs`).
 
 ## Instalación y arranque
@@ -73,7 +74,8 @@ contalibre/
 
 ## Limitaciones actuales (roadmap)
 
-- El balance de situación usa una clasificación orientativa por prefijos de cuenta; no sustituye a los formatos oficiales.
+- La recuperación de contraseña no envía email (esta app no tiene servidor de correo, es local): el token se muestra en la consola donde se ejecuta el servidor, pensado para que lo lea quien tiene acceso a esa máquina.
+- El límite de intentos de login es en memoria (por proceso); si se ejecutan varios workers detrás de un balanceador, cada uno lleva su propio contador.
 
 > ⚠️ ContaLibre es una herramienta de gestión; no constituye asesoramiento fiscal ni contable.
 

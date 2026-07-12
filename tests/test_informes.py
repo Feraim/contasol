@@ -59,8 +59,53 @@ def test_balance_cuadra(client, tercero):
     b = client.get("/api/v1/informes/balance?hasta=2026-12-31").json()
     assert b["cuadrado"] is True
     assert b["total_activo"] == b["total_pasivo"]
-    pn = b["pasivo"]["Patrimonio neto"]
+    pn = b["pasivo"]["A) PATRIMONIO NETO · A-1) Fondos propios · VII. Resultado del ejercicio"]
     assert any(f["importe"] == 1300 for f in pn)  # resultado del periodo
+
+
+def test_balance_clasifica_por_epigrafes_oficiales(client):
+    for codigo, nombre in (
+        ("206", "Aplicaciones informáticas"),
+        ("217", "Equipos para procesos de información"),
+        ("300", "Mercaderías"),
+        ("170", "Deudas LP entidades de crédito"),
+        ("520", "Deudas CP entidades de crédito"),
+    ):
+        r = client.post("/api/v1/cuentas", json={"codigo": codigo + "9", "nombre": nombre})
+        assert r.status_code == 201, r.text
+
+    client.post(
+        "/api/v1/asientos",
+        json={
+            "fecha": "2026-01-02",
+            "concepto": "Siembra balance",
+            "apuntes": [
+                {"cuenta": "2069", "debe": 100},   # inmovilizado intangible
+                {"cuenta": "2179", "debe": 200},   # inmovilizado material
+                {"cuenta": "3009", "debe": 150},   # existencias
+                {"cuenta": "572", "debe": 550},
+                {"cuenta": "1709", "haber": 300},  # deudas a largo plazo
+                {"cuenta": "5209", "haber": 200},  # deudas a corto plazo
+                {"cuenta": "400", "haber": 500},   # acreedores comerciales
+            ],
+        },
+    )
+    b = client.get("/api/v1/informes/balance?hasta=2026-12-31").json()
+    assert b["cuadrado"] is True
+
+    activo = b["activo"]
+    assert any(f["cuenta"] == "2069" for f in activo["A) ACTIVO NO CORRIENTE · I. Inmovilizado intangible"])
+    assert any(f["cuenta"] == "2179" for f in activo["A) ACTIVO NO CORRIENTE · II. Inmovilizado material"])
+    assert any(f["cuenta"] == "3009" for f in activo["B) ACTIVO CORRIENTE · II. Existencias"])
+    assert any(f["cuenta"] == "572" for f in activo["B) ACTIVO CORRIENTE · VII. Efectivo y otros activos líquidos equivalentes"])
+
+    pasivo = b["pasivo"]
+    assert any(f["cuenta"] == "1709" for f in pasivo["B) PASIVO NO CORRIENTE · II. Deudas a largo plazo"])
+    assert any(f["cuenta"] == "5209" for f in pasivo["C) PASIVO CORRIENTE · II. Deudas a corto plazo"])
+    assert any(
+        f["cuenta"] == "400"
+        for f in pasivo["C) PASIVO CORRIENTE · IV. Acreedores comerciales y otras cuentas a pagar"]
+    )
 
 
 def test_mayor_con_saldo_acumulado(client, tercero):

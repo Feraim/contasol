@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
+
 from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import models_control
+from .auth import DURACION_SESION
 from .database import get_control_db, sesion_empresa
 
 COOKIE_SESION = "contalibre_sesion"
@@ -17,6 +20,11 @@ def usuario_actual(
     sesion = db.get(models_control.Sesion, contalibre_sesion)
     if sesion is None:
         raise HTTPException(401, "Sesión no válida o caducada")
+    creada = sesion.creada if sesion.creada.tzinfo else sesion.creada.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - creada > DURACION_SESION:
+        db.delete(sesion)
+        db.commit()
+        raise HTTPException(401, "Sesión caducada, vuelve a iniciar sesión")
     usuario = db.get(models_control.Usuario, sesion.usuario_id)
     if usuario is None:
         raise HTTPException(401, "Sesión no válida")

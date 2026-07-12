@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models_control
 from ..database import get_control_db
 from ..deps import usuario_actual
+from ..services import backup as svc_backup
 
 router = APIRouter(prefix="/empresas", tags=["empresas"])
 
@@ -55,6 +56,22 @@ def crear_empresa(
     db.add(models_control.Membresia(usuario_id=usuario.id, empresa_id=empresa.id, rol="admin"))
     db.commit()
     return {"id": empresa.id, "nombre": empresa.nombre, "rol": "admin"}
+
+
+@router.get("/{empresa_id}/exportar")
+def exportar_empresa(
+    empresa_id: int,
+    usuario: models_control.Usuario = Depends(usuario_actual),
+    db: Session = Depends(get_control_db),
+):
+    if _rol_en_empresa(db, usuario.id, empresa_id) != "admin":
+        raise HTTPException(403, "Solo un administrador puede exportar la copia de seguridad")
+    contenido = svc_backup.exportar_zip(empresa_id)
+    return Response(
+        contenido,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="contalibre_empresa_{empresa_id}.zip"'},
+    )
 
 
 @router.get("/{empresa_id}/usuarios")

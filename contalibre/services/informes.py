@@ -137,20 +137,49 @@ def perdidas_y_ganancias(
     }
 
 
-# Clasificación orientativa del balance por prefijos de cuenta.
+# Estructura oficial del balance de situación abreviado (PGC), por epígrafe.
+# Los grupos de amortización/deterioro acumulada (28, 29) se restan dentro de
+# la misma masa que el activo que corrigen, no se separan aparte.
 _SECCIONES_ACTIVO = [
-    (("20", "21", "22", "23", "24", "25", "26", "28", "29"), "Inmovilizado"),
-    (("3",), "Existencias"),
-    (("43", "44", "460", "470", "471", "472", "473", "474"), "Deudores y Hacienda deudora"),
-    (("53", "54", "57"), "Tesorería e inversiones financieras"),
+    (("20", "280", "290"), "A) ACTIVO NO CORRIENTE · I. Inmovilizado intangible"),
+    (("21", "23", "281", "291"), "A) ACTIVO NO CORRIENTE · II. Inmovilizado material"),
+    (("22", "282", "292"), "A) ACTIVO NO CORRIENTE · III. Inversiones inmobiliarias"),
+    (("24", "293", "294"), "A) ACTIVO NO CORRIENTE · IV. Inversiones en empresas del grupo y asociadas a largo plazo"),
+    (("25", "26", "297", "298"), "A) ACTIVO NO CORRIENTE · V. Inversiones financieras a largo plazo"),
+    (("474",), "A) ACTIVO NO CORRIENTE · VI. Activos por impuesto diferido"),
+    (("3", "39"), "B) ACTIVO CORRIENTE · II. Existencias"),
+    (
+        ("43", "44", "460", "470", "471", "472", "473"),
+        "B) ACTIVO CORRIENTE · III. Deudores comerciales y otras cuentas a cobrar",
+    ),
+    (("53",), "B) ACTIVO CORRIENTE · IV. Inversiones en empresas del grupo y asociadas a corto plazo"),
+    (("54",), "B) ACTIVO CORRIENTE · V. Inversiones financieras a corto plazo"),
+    (("480", "567"), "B) ACTIVO CORRIENTE · VI. Periodificaciones a corto plazo"),
+    (("57",), "B) ACTIVO CORRIENTE · VII. Efectivo y otros activos líquidos equivalentes"),
 ]
 _SECCIONES_PASIVO = [
-    (("10", "11", "12", "13"), "Patrimonio neto"),
-    (("14", "15", "16", "17", "18", "19"), "Deudas a largo plazo"),
+    (("100", "101", "102", "103", "104"), "A) PATRIMONIO NETO · A-1) Fondos propios · I. Capital"),
+    (("110",), "A) PATRIMONIO NETO · A-1) Fondos propios · II. Prima de emisión"),
+    (("112", "113", "114", "115", "119"), "A) PATRIMONIO NETO · A-1) Fondos propios · III. Reservas"),
+    (("108", "109"), "A) PATRIMONIO NETO · A-1) Fondos propios · IV. (Acciones y participaciones en patrimonio propias)"),
+    (("120", "121"), "A) PATRIMONIO NETO · A-1) Fondos propios · V. Resultados de ejercicios anteriores"),
+    (("118",), "A) PATRIMONIO NETO · A-1) Fondos propios · VI. Otras aportaciones de socios"),
+    (("129",), "A) PATRIMONIO NETO · A-1) Fondos propios · VII. Resultado del ejercicio"),
+    (("557",), "A) PATRIMONIO NETO · A-1) Fondos propios · VIII. (Dividendo a cuenta)"),
+    (("133", "134", "135", "136", "137"), "A) PATRIMONIO NETO · A-2) Ajustes por cambios de valor"),
+    (("130", "131", "132"), "A) PATRIMONIO NETO · A-3) Subvenciones, donaciones y legados recibidos"),
+    (("14",), "B) PASIVO NO CORRIENTE · I. Provisiones a largo plazo"),
+    (("15", "17", "18"), "B) PASIVO NO CORRIENTE · II. Deudas a largo plazo"),
+    (("16",), "B) PASIVO NO CORRIENTE · III. Deudas con empresas del grupo y asociadas a largo plazo"),
+    (("479",), "B) PASIVO NO CORRIENTE · IV. Pasivos por impuesto diferido"),
+    (("499", "529"), "C) PASIVO CORRIENTE · I. Provisiones a corto plazo"),
+    (("50", "52", "55", "560", "561"), "C) PASIVO CORRIENTE · II. Deudas a corto plazo"),
+    (("51",), "C) PASIVO CORRIENTE · III. Deudas con empresas del grupo y asociadas a corto plazo"),
     (
-        ("40", "41", "465", "466", "475", "476", "477", "51", "52", "55", "56"),
-        "Acreedores y Hacienda acreedora",
+        ("40", "41", "438", "465", "466", "475", "476", "477"),
+        "C) PASIVO CORRIENTE · IV. Acreedores comerciales y otras cuentas a pagar",
     ),
+    (("485", "568"), "C) PASIVO CORRIENTE · V. Periodificaciones a corto plazo"),
 ]
 
 
@@ -188,7 +217,11 @@ def balance_situacion(db: Session, hasta: date | None = None) -> dict:
             continue
         destino = _clasificar(codigo)
         if destino is None:
-            destino = ("activo", "Otro activo") if saldo > 0 else ("pasivo", "Otro pasivo")
+            destino = (
+                ("activo", "B) ACTIVO CORRIENTE · Otros activos sin clasificar")
+                if saldo > 0
+                else ("pasivo", "C) PASIVO CORRIENTE · Otros pasivos sin clasificar")
+            )
         lado, seccion = destino
         fila = {"cuenta": codigo, "nombre": nombres.get(codigo, "")}
         if lado == "activo":
@@ -201,7 +234,8 @@ def balance_situacion(db: Session, hasta: date | None = None) -> dict:
             total_pasivo += -saldo
 
     if resultado:
-        pasivo["Patrimonio neto"].append(
+        seccion_resultado = "A) PATRIMONIO NETO · A-1) Fondos propios · VII. Resultado del ejercicio"
+        pasivo[seccion_resultado].append(
             {"cuenta": "", "nombre": "Resultado del periodo (sin regularizar)",
              "importe": a_euros(resultado)}
         )

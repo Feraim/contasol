@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from contalibre import database
+from contalibre import database, ratelimit
 from contalibre.main import app
 
 
@@ -12,6 +12,7 @@ from contalibre.main import app
 def client():
     database.reset_para_pruebas(Path(tempfile.mkdtemp()))
     database.init_control_db()
+    ratelimit._intentos.clear()
     with TestClient(app) as c:
         r = c.post(
             "/api/v1/auth/registro",

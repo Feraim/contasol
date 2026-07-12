@@ -174,6 +174,61 @@ def test_migracion_de_instalacion_antigua(tmp_path):
         assert roles["Empresa migrada"] == "admin"
 
 
+def test_exportar_copia_de_seguridad(client):
+    import sqlite3
+    import zipfile
+    from io import BytesIO
+
+    client.post(
+        "/api/v1/terceros", json={"tipo": "cliente", "nif": "B44444444", "nombre": "Para el backup"}
+    )
+    perfil = client.get("/api/v1/auth/me").json()
+    empresa_id = perfil["empresas"][0]["id"]
+
+    r = client.get(f"/api/v1/empresas/{empresa_id}/exportar")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+
+    with zipfile.ZipFile(BytesIO(r.content)) as zf:
+        nombres = zf.namelist()
+        assert len(nombres) == 1
+        contenido_db = zf.read(nombres[0])
+
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        ruta = Path(tmp) / "copia.db"
+        ruta.write_bytes(contenido_db)
+        con = sqlite3.connect(ruta)
+        filas = con.execute("SELECT nombre FROM terceros").fetchall()
+        con.close()
+    assert ("Para el backup",) in filas
+
+
+def test_exportar_copia_solo_admin(client):
+    perfil = client.get("/api/v1/auth/me").json()
+    empresa_id = perfil["empresas"][0]["id"]
+
+    with TestClient(app) as invitado:
+        _registrar(invitado, "invitado_backup@contalibre.local", "Empresa del invitado backup")
+
+    client.post(
+        f"/api/v1/empresas/{empresa_id}/usuarios",
+        json={"email": "invitado_backup@contalibre.local", "rol": "editor"},
+    )
+
+    with TestClient(app) as invitado2:
+        invitado2.post(
+            "/api/v1/auth/login",
+            json={"email": "invitado_backup@contalibre.local", "password": "password1234"},
+        )
+        r = invitado2.get(
+            f"/api/v1/empresas/{empresa_id}/exportar", headers={"X-Empresa-Id": str(empresa_id)}
+        )
+        assert r.status_code == 403
+
+
 def test_registro_email_duplicado(client):
     r = client.post(
         "/api/v1/auth/registro",

@@ -1,17 +1,19 @@
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from .. import auth, models_control
+from .. import auth, models_control, ratelimit
+from ..auth import DURACION_RESET_PASSWORD, DURACION_SESION
 from ..database import get_control_db
 from ..deps import COOKIE_SESION, usuario_actual
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-DURACION_SESION = timedelta(days=30)
+logger = logging.getLogger("contalibre.auth")
 
 
 class RegistroIn(BaseModel):
@@ -26,6 +28,20 @@ class LoginIn(BaseModel):
     password: str
 
 
+class OlvidePasswordIn(BaseModel):
+    email: str
+
+
+class RestablecerPasswordIn(BaseModel):
+    token: str
+    password_nueva: str = Field(min_length=8, max_length=200)
+
+
+class CambiarPasswordIn(BaseModel):
+    password_actual: str
+    password_nueva: str = Field(min_length=8, max_length=200)
+
+
 def _crear_sesion(db: Session, response: Response, usuario_id: int) -> None:
     token = auth.generar_token()
     db.add(models_control.Sesion(token=token, usuario_id=usuario_id, creada=datetime.now(timezone.utc)))
@@ -34,6 +50,11 @@ def _crear_sesion(db: Session, response: Response, usuario_id: int) -> None:
         COOKIE_SESION, token, httponly=True, samesite="lax",
         max_age=int(DURACION_SESION.total_seconds()),
     )
+
+
+def _invalidar_sesiones(db: Session, usuario_id: int) -> None:
+    """Cierra todas las sesiones activas de un usuario (tras cambiar la contraseña)."""
+    db.execute(delete(models_control.Sesion).where(models_control.Sesion.usuario_id == usuario_id))
 
 
 def _perfil(db: Session, usuario: models_control.Usuario) -> dict:
@@ -45,6 +66,19 @@ def _perfil(db: Session, usuario: models_control.Usuario) -> dict:
         for m in membresias
     ]
     return {"id": usuario.id, "email": usuario.email, "nombre": usuario.nombre, "empresas": empresas}
+
+
+def _reclamar_empresas_huerfanas(db: Session, usuario_id: int) -> None:
+    """El primer usuario en registrarse se convierte en admin de
+    cualquier empresa sin usuarios (p. ej. una migrada de una
+    instalación previa a multiempresa, que no tiene a nadie vinculado)."""
+    huerfanas = db.scalars(
+        select(models_control.Empresa).where(
+            models_control.Empresa.id.not_in(select(models_control.Membresia.empresa_id))
+        )
+    ).all()
+    for empresa in huerfanas:
+        db.add(models_control.Membresia(usuario_id=usuario_id, empresa_id=empresa.id, rol="admin"))
 
 
 @router.post("/registro", status_code=201)
@@ -67,24 +101,16 @@ def registro(datos: RegistroIn, response: Response, db: Session = Depends(get_co
     return _perfil(db, usuario)
 
 
-def _reclamar_empresas_huerfanas(db: Session, usuario_id: int) -> None:
-    """El primer usuario en registrarse se convierte en admin de
-    cualquier empresa sin usuarios (p. ej. una migrada de una
-    instalación previa a multiempresa, que no tiene a nadie vinculado)."""
-    huerfanas = db.scalars(
-        select(models_control.Empresa).where(
-            models_control.Empresa.id.not_in(select(models_control.Membresia.empresa_id))
-        )
-    ).all()
-    for empresa in huerfanas:
-        db.add(models_control.Membresia(usuario_id=usuario_id, empresa_id=empresa.id, rol="admin"))
-
-
 @router.post("/login")
 def login(datos: LoginIn, response: Response, db: Session = Depends(get_control_db)):
+    clave = datos.email.strip().lower()
+    if ratelimit.bloqueado(clave):
+        raise HTTPException(429, "Demasiados intentos fallidos; espera unos minutos y vuelve a intentarlo")
     usuario = db.scalar(select(models_control.Usuario).where(models_control.Usuario.email == datos.email))
     if usuario is None or not auth.verificar_password(datos.password, usuario.password_hash):
+        ratelimit.registrar_fallo(clave)
         raise HTTPException(401, "Email o contraseña incorrectos")
+    ratelimit.limpiar(clave)
     _crear_sesion(db, response, usuario.id)
     return _perfil(db, usuario)
 
@@ -106,3 +132,57 @@ def logout(
 @router.get("/me")
 def me(usuario: models_control.Usuario = Depends(usuario_actual), db: Session = Depends(get_control_db)):
     return _perfil(db, usuario)
+
+
+@router.post("/olvide-password", status_code=202)
+def olvide_password(datos: OlvidePasswordIn, db: Session = Depends(get_control_db)):
+    """Genera un token de restablecimiento. Como esta aplicación es local y no
+    tiene infraestructura de correo, el token se registra en la consola del
+    servidor (solo quien tiene acceso a la máquina puede leerlo)."""
+    usuario = db.scalar(select(models_control.Usuario).where(models_control.Usuario.email == datos.email))
+    if usuario is not None:
+        token = auth.generar_token()
+        db.add(
+            models_control.RestablecimientoPassword(
+                token=token, usuario_id=usuario.id, creado=datetime.now(timezone.utc)
+            )
+        )
+        db.commit()
+        logger.warning(
+            "Restablecimiento de contraseña solicitado para %s — token: %s (válido 1 hora)",
+            usuario.email, token,
+        )
+    # Respuesta siempre genérica: no revela si el email existe o no.
+    return {
+        "mensaje": "Si el email existe, se ha generado un token de restablecimiento "
+        "(consulta la consola donde se ejecuta el servidor)."
+    }
+
+
+@router.post("/restablecer-password", status_code=204)
+def restablecer_password(datos: RestablecerPasswordIn, db: Session = Depends(get_control_db)):
+    reset = db.get(models_control.RestablecimientoPassword, datos.token)
+    if reset is None:
+        raise HTTPException(400, "Token inválido o ya utilizado")
+    creado = reset.creado if reset.creado.tzinfo else reset.creado.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - creado > DURACION_RESET_PASSWORD:
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(400, "El token ha caducado; solicita uno nuevo")
+    usuario = db.get(models_control.Usuario, reset.usuario_id)
+    usuario.password_hash = auth.hash_password(datos.password_nueva)
+    db.delete(reset)
+    _invalidar_sesiones(db, usuario.id)
+    db.commit()
+
+
+@router.put("/password", status_code=204)
+def cambiar_password(
+    datos: CambiarPasswordIn,
+    usuario: models_control.Usuario = Depends(usuario_actual),
+    db: Session = Depends(get_control_db),
+):
+    if not auth.verificar_password(datos.password_actual, usuario.password_hash):
+        raise HTTPException(401, "La contraseña actual no es correcta")
+    usuario.password_hash = auth.hash_password(datos.password_nueva)
+    db.commit()

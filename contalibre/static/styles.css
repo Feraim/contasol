@@ -204,5 +204,5 @@ button.secundario:hover { background: var(--chrome); }
 }
 #login-pestanas button.activo { color: var(--naranja-osc); font-weight: 600; box-shadow: inset 0 -2px 0 var(--naranja); }
 #login-caja form.formulario { grid-template-columns: 1fr; }
-#form-login.oculto, #form-registro.oculto { display: none; }
+#form-login.oculto, #form-registro.oculto, #form-olvide.oculto, #form-restablecer.oculto { display: none; }
 button.ancho { width: 100%; justify-content: center; }
