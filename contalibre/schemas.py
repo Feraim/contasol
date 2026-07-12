@@ -179,3 +179,16 @@ class ActivoOut(BaseModel):
 
 class AmortizarIn(BaseModel):
     ejercicio: int = Field(ge=1900, le=2200)
+
+
+class EjercicioOut(BaseModel):
+    anio: int
+    abierto: bool
+    cerrado: bool
+    fecha_apertura: date | None
+    fecha_cierre: date | None
+    resultado: float | None
+    resultado_previsto: float | None = None
+    asiento_apertura_id: int | None
+    asiento_regularizacion_id: int | None
+    asiento_cierre_id: int | None

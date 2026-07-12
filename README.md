@@ -10,6 +10,7 @@
 - **Facturación**: facturas emitidas y recibidas con varias líneas y tipos de IVA (21/10/4/0 %), retenciones IRPF, asiento automático, cobro/pago con un clic.
 - **Inmovilizado**: fichas de activos con amortización lineal (prorrateo por días el primer año, ajuste de redondeo en el último) y asientos de dotación automáticos.
 - **Informes**: libro mayor, balance de sumas y saldos, pérdidas y ganancias, balance de situación y resumen de IVA trimestral estilo modelo 303.
+- **Cierre y apertura de ejercicio**: regularización automática de las cuentas de gastos e ingresos (grupos 6/7) contra la 129, asiento de cierre que salda el resto de cuentas patrimoniales y asiento de apertura que reabre esos saldos en el ejercicio siguiente. Cierre secuencial obligatorio (no se puede cerrar un año sin haber cerrado y abierto los anteriores) y deshacer disponible mientras no se haya abierto/cerrado el ejercicio contiguo. Bloquea la creación o eliminación de asientos en ejercicios ya cerrados.
 - **API REST** completa y documentada (OpenAPI en `/docs`).
 
 ## Instalación y arranque
@@ -56,7 +57,6 @@ contalibre/
 
 ## Limitaciones actuales (roadmap)
 
-- Cierre y apertura de ejercicio (regularización 6/7 contra 129).
 - Modelos oficiales AEAT (303, 390, 347) y exportación a PDF/Excel.
 - Multiempresa y control de usuarios.
 - Importación de extractos bancarios (norma 43) y conciliación.

@@ -95,6 +95,12 @@ const RIBBON = [
     ],
   },
   {
+    id: "cierre", label: "Cierre",
+    grupos: [
+      { etiqueta: "Ejercicio", botones: [["🔒", "Cierre y apertura", "ejercicios"]] },
+    ],
+  },
+  {
     id: "informes", label: "Impresión oficial",
     grupos: [
       { etiqueta: "Cuentas anuales", botones: [["🏦", "Balance de situación", "balance"], ["📈", "Pérdidas y ganancias", "pyg"]] },
@@ -914,6 +920,76 @@ vistas.iva = async () => {
   };
   $("#v-generar").onclick = () => generar().catch(fallo);
   await generar();
+};
+
+/* ---------- Cierre y apertura de ejercicio ---------- */
+
+vistas.ejercicios = async () => {
+  $("#area").innerHTML = ventana("🔒", "Cierre y apertura de ejercicio", `
+    <div class="toolbar">
+      <button id="ej-cerrar" disabled>🔒 Cerrar ejercicio</button>
+      <button id="ej-abrir" disabled>🔓 Abrir ejercicio</button>
+      <span class="sep"></span>
+      <button id="ej-deshacer-cierre" disabled>↩️ Deshacer cierre</button>
+      <button id="ej-deshacer-apertura" disabled>↩️ Deshacer apertura</button>
+    </div>
+    <div class="grid-wrap"><table class="grid" id="grid-ejercicios"><thead>
+      <tr><th>Año</th><th>Abierto</th><th>Cerrado</th><th>Fecha apertura</th><th>Fecha cierre</th>
+      <th class="num">Resultado</th></tr></thead><tbody></tbody></table></div>
+    <p class="aviso">La regularización salda las cuentas de gastos e ingresos (grupos 6 y 7) contra la 129 ·
+      el cierre salda el resto de cuentas patrimoniales · la apertura del ejercicio siguiente reabre esos saldos.</p>`);
+
+  let lista = [];
+  function actualizarBotones() {
+    const anio = seleccion();
+    const e = lista.find((x) => String(x.anio) === String(anio));
+    $("#ej-cerrar").disabled = !e || e.cerrado;
+    $("#ej-abrir").disabled = !e || e.abierto;
+    $("#ej-deshacer-cierre").disabled = !e || !e.cerrado;
+    $("#ej-deshacer-apertura").disabled = !e || !e.abierto;
+  }
+
+  const cargar = async () => {
+    lista = await api("/ejercicios");
+    $("#grid-ejercicios tbody").innerHTML = lista.map((e) => `<tr data-id="${e.anio}">
+      <td><b>${e.anio}</b></td><td>${e.abierto ? "✓" : ""}</td><td>${e.cerrado ? "✓" : ""}</td>
+      <td>${fecha_es(e.fecha_apertura)}</td><td>${fecha_es(e.fecha_cierre)}</td>
+      <td class="num">${e.cerrado
+        ? eur(e.resultado)
+        : e.resultado_previsto != null ? `${eur(e.resultado_previsto)} (previsto)` : ""}</td>
+      </tr>`).join("") || `<tr><td colspan="6" class="aviso">Sin ejercicios con movimientos.</td></tr>`;
+    actualizarBotones();
+  };
+
+  const seleccion = conSeleccion("grid-ejercicios",
+    ["#ej-cerrar", "#ej-abrir", "#ej-deshacer-cierre", "#ej-deshacer-apertura"]);
+  $("#grid-ejercicios tbody").addEventListener("click", actualizarBotones);
+
+  $("#ej-cerrar").onclick = async () => {
+    const anio = seleccion();
+    if (!confirm(`¿Cerrar el ejercicio ${anio}? Se generarán los asientos de regularización y cierre.`)) return;
+    try { await api(`/ejercicios/${anio}/cerrar`, { method: "POST" }); toast(`Ejercicio ${anio} cerrado`); await cargar(); }
+    catch (e) { fallo(e); }
+  };
+  $("#ej-abrir").onclick = async () => {
+    const anio = seleccion();
+    try { await api(`/ejercicios/${anio}/abrir`, { method: "POST" }); toast(`Ejercicio ${anio} abierto`); await cargar(); }
+    catch (e) { fallo(e); }
+  };
+  $("#ej-deshacer-cierre").onclick = async () => {
+    const anio = seleccion();
+    if (!confirm(`¿Deshacer el cierre de ${anio}? Se eliminarán sus asientos de regularización y cierre.`)) return;
+    try { await api(`/ejercicios/${anio}/cierre`, { method: "DELETE" }); toast("Cierre deshecho"); await cargar(); }
+    catch (e) { fallo(e); }
+  };
+  $("#ej-deshacer-apertura").onclick = async () => {
+    const anio = seleccion();
+    if (!confirm(`¿Deshacer la apertura de ${anio}?`)) return;
+    try { await api(`/ejercicios/${anio}/apertura`, { method: "DELETE" }); toast("Apertura deshecha"); await cargar(); }
+    catch (e) { fallo(e); }
+  };
+
+  await cargar();
 };
 
 /* ---------- arranque ---------- */

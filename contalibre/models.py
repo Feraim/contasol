@@ -126,3 +126,19 @@ class Amortizacion(Base):
     asiento_id: Mapped[int | None] = mapped_column(ForeignKey("asientos.id"), nullable=True)
 
     activo: Mapped[Activo] = relationship(back_populates="amortizaciones")
+
+
+class Ejercicio(Base):
+    __tablename__ = "ejercicios"
+
+    anio: Mapped[int] = mapped_column(Integer, primary_key=True)
+    abierto: Mapped[bool] = mapped_column(default=False)
+    cerrado: Mapped[bool] = mapped_column(default=False)
+    fecha_apertura: Mapped[date | None] = mapped_column(Date, nullable=True)
+    fecha_cierre: Mapped[date | None] = mapped_column(Date, nullable=True)
+    resultado: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    asiento_apertura_id: Mapped[int | None] = mapped_column(ForeignKey("asientos.id"), nullable=True)
+    asiento_regularizacion_id: Mapped[int | None] = mapped_column(
+        ForeignKey("asientos.id"), nullable=True
+    )
+    asiento_cierre_id: Mapped[int | None] = mapped_column(ForeignKey("asientos.id"), nullable=True)

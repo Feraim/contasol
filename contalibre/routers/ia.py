@@ -30,6 +30,7 @@ DESCRIPCION_ESQUEMA = {
         "terceros": "clientes/proveedores: nif, nombre, subcuentas contables",
         "facturas": "emitidas/recibidas con líneas (base, tipo_iva, cuota), retención, estado y asiento vinculado",
         "activos": "inmovilizado con plan de amortización lineal y dotaciones por ejercicio",
+        "ejercicios": "estado de cierre/apertura por año: regularización 6/7 contra 129 y cierre de balance",
     },
     "endpoints_consulta": {
         "GET /api/v1/cuentas?q=": "buscar cuentas",
@@ -43,6 +44,8 @@ DESCRIPCION_ESQUEMA = {
         "GET /api/v1/informes/balance?hasta=": "balance de situación",
         "GET /api/v1/informes/iva?ejercicio=&trimestre=": "resumen de IVA (estilo modelo 303)",
         "GET /api/v1/informes/panel": "resumen general",
+        "GET /api/v1/ejercicios": "estado de cierre/apertura de cada año",
+        "GET /api/v1/ejercicios/{anio}": "detalle de un ejercicio (resultado previsto si sigue abierto)",
         "GET /openapi.json": "especificación OpenAPI completa",
     },
 }
