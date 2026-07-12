@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .database import init_db
-from .routers import activos, asientos, cuentas, facturas, ia, informes, terceros
+from .routers import activos, asientos, cuentas, ejercicios, facturas, ia, informes, terceros
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -32,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router in (cuentas, asientos, terceros, facturas, activos, informes, ia):
+for router in (cuentas, asientos, terceros, facturas, activos, informes, ejercicios, ia):
     app.include_router(router.router, prefix="/api/v1")
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

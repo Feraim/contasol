@@ -27,6 +27,12 @@ def validar_cuentas(db: Session, codigos: set[str]) -> None:
         raise HTTPException(422, f"Cuentas inexistentes: {', '.join(sorted(faltan))}")
 
 
+def validar_ejercicio_abierto(db: Session, anio: int) -> None:
+    ejercicio = db.get(models.Ejercicio, anio)
+    if ejercicio is not None and ejercicio.cerrado:
+        raise HTTPException(409, f"El ejercicio {anio} está cerrado; no admite nuevos asientos")
+
+
 def crear_asiento(db: Session, datos: schemas.AsientoIn) -> models.Asiento:
     apuntes = [
         models.Apunte(
@@ -63,6 +69,7 @@ def crear_asiento_directo(
         if a.debe and a.haber:
             raise HTTPException(422, "Un apunte no puede tener debe y haber a la vez")
     validar_cuentas(db, {a.cuenta_codigo for a in apuntes})
+    validar_ejercicio_abierto(db, fecha.year)
 
     asiento = models.Asiento(
         numero=siguiente_numero(db, fecha), fecha=fecha, concepto=concepto, apuntes=apuntes
@@ -85,6 +92,7 @@ def eliminar_asiento(db: Session, asiento_id: int) -> None:
     asiento = db.get(models.Asiento, asiento_id)
     if asiento is None:
         raise HTTPException(404, "Asiento no encontrado")
+    validar_ejercicio_abierto(db, asiento.fecha.year)
     factura = asiento_de_factura(db, asiento_id)
     if factura is not None:
         raise HTTPException(
