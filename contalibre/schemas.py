@@ -181,6 +181,33 @@ class AmortizarIn(BaseModel):
     ejercicio: int = Field(ge=1900, le=2200)
 
 
+class ImportarNorma43In(BaseModel):
+    cuenta_tesoreria: str = Field(min_length=1, max_length=10)
+    contenido: str = Field(min_length=1)
+
+
+class ConciliarIn(BaseModel):
+    apunte_id: int
+
+
+class ConciliarNuevoIn(BaseModel):
+    cuenta_contrapartida: str = Field(min_length=1, max_length=10)
+    concepto: str = ""
+
+
+class MovimientoBancarioOut(BaseModel):
+    id: int
+    cuenta_tesoreria: str
+    fecha_operacion: date
+    fecha_valor: date
+    concepto: str
+    importe: float
+    documento: str
+    referencia: str
+    conciliado: bool
+    apunte_id: int | None
+
+
 class EjercicioOut(BaseModel):
     anio: int
     abierto: bool

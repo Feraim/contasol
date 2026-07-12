@@ -31,6 +31,7 @@ DESCRIPCION_ESQUEMA = {
         "facturas": "emitidas/recibidas con líneas (base, tipo_iva, cuota), retención, estado y asiento vinculado",
         "activos": "inmovilizado con plan de amortización lineal y dotaciones por ejercicio",
         "ejercicios": "estado de cierre/apertura por año: regularización 6/7 contra 129 y cierre de balance",
+        "movimientos_bancarios": "extracto importado (norma 43): fecha, concepto, importe con signo, conciliado, apunte vinculado",
     },
     "endpoints_consulta": {
         "GET /api/v1/cuentas?q=": "buscar cuentas",
@@ -49,6 +50,7 @@ DESCRIPCION_ESQUEMA = {
         "GET /api/v1/aeat/303?ejercicio=&trimestre=": "modelo 303 simplificado (casillas de IVA trimestral)",
         "GET /api/v1/aeat/390?ejercicio=": "modelo 390 simplificado (resumen anual de IVA)",
         "GET /api/v1/aeat/347?ejercicio=": "modelo 347 simplificado (operaciones con terceros >3.005,06 €)",
+        "GET /api/v1/bancos/movimientos?cuenta=&conciliado=&desde=&hasta=": "movimientos bancarios importados",
         "GET /openapi.json": "especificación OpenAPI completa",
     },
     "exportacion": (

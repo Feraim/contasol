@@ -13,6 +13,7 @@
 - **Cierre y apertura de ejercicio**: regularización automática de las cuentas de gastos e ingresos (grupos 6/7) contra la 129, asiento de cierre que salda el resto de cuentas patrimoniales y asiento de apertura que reabre esos saldos en el ejercicio siguiente. Cierre secuencial obligatorio (no se puede cerrar un año sin haber cerrado y abierto los anteriores) y deshacer disponible mientras no se haya abierto/cerrado el ejercicio contiguo. Bloquea la creación o eliminación de asientos en ejercicios ya cerrados.
 - **Modelos AEAT simplificados**: 303 (liquidación trimestral de IVA por casillas), 390 (resumen anual agregando los cuatro trimestres) y 347 (operaciones con terceros que superan 3.005,06 € anuales, con desglose trimestral). No cubren todos los regímenes/claves del formulario oficial (ver aviso en cada informe) y no sustituyen la presentación real ante la AEAT.
 - **Exportación a PDF y Excel**: todos los informes (mayor, sumas y saldos, pérdidas y ganancias, balance) y los tres modelos AEAT se pueden descargar en PDF o Excel (`?formato=pdf|excel` en la API, botones en la interfaz).
+- **Conciliación bancaria**: importación de extractos en formato cuaderno 43 de la AEB, conciliación automática por fecha e importe contra los apuntes existentes de la cuenta de tesorería, y conciliación manual (contra un apunte ya contabilizado o creando un asiento nuevo) para lo que no casa solo.
 - **API REST** completa y documentada (OpenAPI en `/docs`).
 
 ## Instalación y arranque
@@ -60,7 +61,6 @@ contalibre/
 ## Limitaciones actuales (roadmap)
 
 - Multiempresa y control de usuarios.
-- Importación de extractos bancarios (norma 43) y conciliación.
 - El balance de situación usa una clasificación orientativa por prefijos de cuenta; no sustituye a los formatos oficiales.
 
 > ⚠️ ContaLibre es una herramienta de gestión; no constituye asesoramiento fiscal ni contable.

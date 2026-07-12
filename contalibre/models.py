@@ -142,3 +142,20 @@ class Ejercicio(Base):
         ForeignKey("asientos.id"), nullable=True
     )
     asiento_cierre_id: Mapped[int | None] = mapped_column(ForeignKey("asientos.id"), nullable=True)
+
+
+class MovimientoBancario(Base):
+    __tablename__ = "movimientos_bancarios"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cuenta_tesoreria: Mapped[str] = mapped_column(String(10), index=True)
+    fecha_operacion: Mapped[date] = mapped_column(Date, index=True)
+    fecha_valor: Mapped[date] = mapped_column(Date)
+    concepto: Mapped[str] = mapped_column(String(200), default="")
+    importe: Mapped[int] = mapped_column(Integer)  # céntimos, con signo
+    documento: Mapped[str] = mapped_column(String(20), default="")
+    referencia: Mapped[str] = mapped_column(String(60), default="")
+    conciliado: Mapped[bool] = mapped_column(default=False)
+    apunte_id: Mapped[int | None] = mapped_column(ForeignKey("apuntes.id"), nullable=True)
+
+    apunte: Mapped["Apunte | None"] = relationship()

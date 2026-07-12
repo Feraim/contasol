@@ -101,6 +101,12 @@ const RIBBON = [
     ],
   },
   {
+    id: "bancos", label: "Bancos",
+    grupos: [
+      { etiqueta: "Conciliación", botones: [["🏦", "Conciliación bancaria", "bancos"]] },
+    ],
+  },
+  {
     id: "informes", label: "Impresión oficial",
     grupos: [
       { etiqueta: "Cuentas anuales", botones: [["🏦", "Balance de situación", "balance"], ["📈", "Pérdidas y ganancias", "pyg"]] },
@@ -1150,6 +1156,144 @@ vistas.aeat347 = async () => {
   $("#m7-pdf").onclick = () => window.open(`/api/v1/aeat/347?${parametros()}&formato=pdf`, "_blank");
   $("#m7-excel").onclick = () => window.open(`/api/v1/aeat/347?${parametros()}&formato=excel`, "_blank");
   await generar();
+};
+
+/* ---------- Conciliación bancaria ---------- */
+
+vistas.bancos = async () => {
+  $("#area").innerHTML = ventana("🏦", "Conciliación bancaria (norma 43)", `
+    <div class="toolbar">
+      <label>Cuenta de tesorería<input list="dl-cuentas" id="bc-cuenta" value="572" style="width:90px"></label>
+      <label>Fichero norma 43<input type="file" id="bc-fichero" accept=".txt,.n43,.943"></label>
+      <button id="bc-importar">⬆️ Importar</button>
+      <span class="sep"></span>
+      <label>Estado<select id="bc-estado">
+        <option value="">Todos</option><option value="false">Pendientes</option><option value="true">Conciliados</option>
+      </select></label>
+      <button id="bc-buscar">🔍 Actualizar</button>
+    </div>
+    <div class="toolbar">
+      <button id="bc-conciliar" disabled>🔗 Conciliar con apunte…</button>
+      <button id="bc-nuevo" disabled>➕ Conciliar creando asiento</button>
+      <button id="bc-desconciliar" disabled>↩️ Desconciliar</button>
+      <button id="bc-borrar" disabled>🗑 Eliminar</button>
+    </div>
+    <div class="grid-wrap"><table class="grid" id="grid-bancos"><thead>
+      <tr><th>Fecha</th><th>Concepto</th><th>Documento</th><th class="num">Importe</th><th>Estado</th></tr>
+    </thead><tbody></tbody></table></div>
+    <div class="pie-ventana" id="bc-pie"></div>
+    <p class="aviso">Formato cuaderno 43 de la AEB (registros 22/23). Los movimientos se concilian
+      automáticamente si existe un apunte de igual importe y fecha en la cuenta de tesorería indicada.</p>`);
+
+  let lista = [];
+  function actualizarBotones() {
+    const id = seleccion();
+    const m = lista.find((x) => String(x.id) === String(id));
+    $("#bc-conciliar").disabled = !m || m.conciliado;
+    $("#bc-nuevo").disabled = !m || m.conciliado;
+    $("#bc-desconciliar").disabled = !m || !m.conciliado;
+    $("#bc-borrar").disabled = !m || m.conciliado;
+  }
+
+  const cargar = async () => {
+    const p = new URLSearchParams({ cuenta: $("#bc-cuenta").value.trim() || "572" });
+    if ($("#bc-estado").value) p.set("conciliado", $("#bc-estado").value);
+    lista = await api("/bancos/movimientos?" + p);
+    $("#grid-bancos tbody").innerHTML = lista.map((m) => `<tr data-id="${m.id}">
+      <td>${fecha_es(m.fecha_operacion)}</td><td>${esc(m.concepto)}</td><td>${esc(m.documento)}</td>
+      <td class="num ${m.importe >= 0 ? "" : "neg"}">${eur(m.importe)}</td>
+      <td><span class="pill ${m.conciliado ? "pagada" : "pendiente"}">${m.conciliado ? "conciliado" : "pendiente"}</span></td></tr>`).join("") ||
+      `<tr><td colspan="5" class="aviso">Sin movimientos importados.</td></tr>`;
+    $("#bc-pie").innerHTML = `<span>Movimientos: <span class="dato">${lista.length}</span></span>
+      <span>Pendientes: <span class="dato">${lista.filter((m) => !m.conciliado).length}</span></span>`;
+    actualizarBotones();
+  };
+
+  const seleccion = conSeleccion("grid-bancos", ["#bc-conciliar", "#bc-nuevo", "#bc-desconciliar", "#bc-borrar"]);
+  $("#grid-bancos tbody").addEventListener("click", actualizarBotones);
+
+  $("#bc-buscar").onclick = () => cargar().catch(fallo);
+
+  $("#bc-importar").onclick = async () => {
+    const fichero = $("#bc-fichero").files[0];
+    if (!fichero) { toast("Selecciona un fichero", true); return; }
+    const contenido = await fichero.text();
+    try {
+      const nuevos = await api("/bancos/importar", {
+        method: "POST",
+        body: JSON.stringify({ cuenta_tesoreria: $("#bc-cuenta").value.trim() || "572", contenido }),
+      });
+      toast(`${nuevos.length} movimiento(s) importado(s)`);
+      $("#bc-fichero").value = "";
+      await cargar();
+    } catch (e) { fallo(e); }
+  };
+
+  $("#bc-conciliar").onclick = () => {
+    const m = lista.find((x) => String(x.id) === String(seleccion()));
+    if (!m) return;
+    abrirModal(`Conciliar movimiento — ${eur(m.importe)} · ${fecha_es(m.fecha_operacion)}`, `
+      <form class="formulario" id="form-conciliar">
+        <label class="ancho">ID del apunte contable<input id="fc-apunte" type="number" required></label>
+        <p class="ancho aviso" style="padding:0">Busca el id del apunte abriendo el asiento correspondiente en Diario.
+          Si el movimiento aún no está contabilizado, usa «Conciliar creando asiento».</p>
+        <div class="botones-form ancho">
+          <button type="button" class="secundario" onclick="document.getElementById('modal').classList.add('oculto')">Cancelar</button>
+          <button type="submit" class="principal">Conciliar</button>
+        </div>
+      </form>`);
+    $("#form-conciliar").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api(`/bancos/${m.id}/conciliar`, {
+          method: "POST",
+          body: JSON.stringify({ apunte_id: parseInt($("#fc-apunte").value, 10) }),
+        });
+        toast("Movimiento conciliado"); cerrarModal(); cargar();
+      } catch (err) { fallo(err); }
+    };
+  };
+
+  $("#bc-nuevo").onclick = () => {
+    const m = lista.find((x) => String(x.id) === String(seleccion()));
+    if (!m) return;
+    abrirModal(`Conciliar creando asiento — ${eur(m.importe)} · ${fecha_es(m.fecha_operacion)}`, `
+      <form class="formulario" id="form-conciliar-nuevo">
+        <label>Cuenta contrapartida<input list="dl-cuentas" id="fcn-cuenta" value="${m.importe >= 0 ? "700" : "626"}"></label>
+        <label class="ancho">Concepto<input id="fcn-concepto" value="${esc(m.concepto)}" maxlength="200"></label>
+        <div class="botones-form ancho">
+          <button type="button" class="secundario" onclick="document.getElementById('modal').classList.add('oculto')">Cancelar</button>
+          <button type="submit" class="principal">Crear asiento y conciliar</button>
+        </div>
+      </form>`);
+    $("#form-conciliar-nuevo").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api(`/bancos/${m.id}/conciliar-nuevo`, {
+          method: "POST",
+          body: JSON.stringify({
+            cuenta_contrapartida: $("#fcn-cuenta").value.trim(),
+            concepto: $("#fcn-concepto").value.trim(),
+          }),
+        });
+        toast("Asiento creado y movimiento conciliado"); cerrarModal(); cargar();
+      } catch (err) { fallo(err); }
+    };
+  };
+
+  $("#bc-desconciliar").onclick = async () => {
+    if (!confirm("¿Desconciliar este movimiento? El asiento contable no se modifica.")) return;
+    try { await api(`/bancos/${seleccion()}/conciliacion`, { method: "DELETE" }); toast("Movimiento desconciliado"); cargar(); }
+    catch (e) { fallo(e); }
+  };
+
+  $("#bc-borrar").onclick = async () => {
+    if (!confirm("¿Eliminar este movimiento importado?")) return;
+    try { await api(`/bancos/${seleccion()}`, { method: "DELETE" }); toast("Movimiento eliminado"); cargar(); }
+    catch (e) { fallo(e); }
+  };
+
+  await cargar();
 };
 
 /* ---------- arranque ---------- */
