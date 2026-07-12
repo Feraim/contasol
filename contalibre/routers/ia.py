@@ -46,8 +46,15 @@ DESCRIPCION_ESQUEMA = {
         "GET /api/v1/informes/panel": "resumen general",
         "GET /api/v1/ejercicios": "estado de cierre/apertura de cada año",
         "GET /api/v1/ejercicios/{anio}": "detalle de un ejercicio (resultado previsto si sigue abierto)",
+        "GET /api/v1/aeat/303?ejercicio=&trimestre=": "modelo 303 simplificado (casillas de IVA trimestral)",
+        "GET /api/v1/aeat/390?ejercicio=": "modelo 390 simplificado (resumen anual de IVA)",
+        "GET /api/v1/aeat/347?ejercicio=": "modelo 347 simplificado (operaciones con terceros >3.005,06 €)",
         "GET /openapi.json": "especificación OpenAPI completa",
     },
+    "exportacion": (
+        "los informes (mayor, sumas-saldos, pyg, balance) y los modelos aeat/* aceptan "
+        "?formato=pdf|excel para descargar el documento en vez de JSON"
+    ),
 }
 
 

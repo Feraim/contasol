@@ -106,6 +106,7 @@ const RIBBON = [
       { etiqueta: "Cuentas anuales", botones: [["🏦", "Balance de situación", "balance"], ["📈", "Pérdidas y ganancias", "pyg"]] },
       { etiqueta: "Libros", botones: [["📖", "Libro diario", "diario"], ["📚", "Libro mayor", "mayor"], ["⚖️", "Sumas y saldos", "sumas"]] },
       { etiqueta: "Impuestos", botones: [["🏛️", "Modelo 303 (IVA)", "iva"]] },
+      { etiqueta: "Modelos AEAT", botones: [["🏛️", "Modelo 303", "aeat303"], ["📊", "Modelo 390", "aeat390"], ["🧾", "Modelo 347", "aeat347"]] },
     ],
   },
 ];
@@ -370,14 +371,26 @@ vistas.mayor = async () => {
       <label>Desde<input type="date" id="m-desde" value="${desdeEj()}"></label>
       <label>Hasta<input type="date" id="m-hasta" value="${hastaEj()}"></label>
       <button id="m-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="m-pdf">📄 PDF</button>
+      <button id="m-excel">📊 Excel</button>
     </div>
     <div id="m-salida"><p class="aviso">Indica una cuenta y pulsa Consultar.</p></div>`);
-  $("#m-generar").onclick = async () => {
+
+  const parametrosMayor = () => {
     const cuenta = $("#m-cuenta").value.trim();
-    if (!cuenta) return;
     const p = new URLSearchParams({ cuenta });
     if ($("#m-desde").value) p.set("desde", $("#m-desde").value);
     if ($("#m-hasta").value) p.set("hasta", $("#m-hasta").value);
+    return p;
+  };
+  $("#m-pdf").onclick = () => window.open("/api/v1/informes/mayor?" + parametrosMayor() + "&formato=pdf", "_blank");
+  $("#m-excel").onclick = () => window.open("/api/v1/informes/mayor?" + parametrosMayor() + "&formato=excel", "_blank");
+
+  $("#m-generar").onclick = async () => {
+    const cuenta = $("#m-cuenta").value.trim();
+    if (!cuenta) return;
+    const p = parametrosMayor();
     try {
       const m = await api("/informes/mayor?" + p);
       $("#m-salida").innerHTML = `
@@ -407,12 +420,23 @@ vistas.sumas = async () => {
       <label>Desde<input type="date" id="s-desde" value="${desdeEj()}"></label>
       <label>Hasta<input type="date" id="s-hasta" value="${hastaEj()}"></label>
       <button id="s-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="s-pdf">📄 PDF</button>
+      <button id="s-excel">📊 Excel</button>
     </div>
     <div id="s-salida"></div>`);
-  const generar = async () => {
+
+  const parametrosSumas = () => {
     const p = new URLSearchParams();
     if ($("#s-desde").value) p.set("desde", $("#s-desde").value);
     if ($("#s-hasta").value) p.set("hasta", $("#s-hasta").value);
+    return p;
+  };
+  $("#s-pdf").onclick = () => window.open("/api/v1/informes/sumas-saldos?" + parametrosSumas() + "&formato=pdf", "_blank");
+  $("#s-excel").onclick = () => window.open("/api/v1/informes/sumas-saldos?" + parametrosSumas() + "&formato=excel", "_blank");
+
+  const generar = async () => {
+    const p = parametrosSumas();
     const s = await api("/informes/sumas-saldos?" + p);
     $("#s-salida").innerHTML = `
       <div class="grid-wrap"><table class="grid"><thead>
@@ -833,10 +857,18 @@ vistas.pyg = async () => {
       <label>Desde<input type="date" id="p-desde" value="${desdeEj()}"></label>
       <label>Hasta<input type="date" id="p-hasta" value="${hastaEj()}"></label>
       <button id="p-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="p-pdf">📄 PDF</button>
+      <button id="p-excel">📊 Excel</button>
     </div>
     <div id="p-salida"></div>`);
+
+  const parametrosPyg = () => `desde=${$("#p-desde").value}&hasta=${$("#p-hasta").value}`;
+  $("#p-pdf").onclick = () => window.open(`/api/v1/informes/pyg?${parametrosPyg()}&formato=pdf`, "_blank");
+  $("#p-excel").onclick = () => window.open(`/api/v1/informes/pyg?${parametrosPyg()}&formato=excel`, "_blank");
+
   const generar = async () => {
-    const p = await api(`/informes/pyg?desde=${$("#p-desde").value}&hasta=${$("#p-hasta").value}`);
+    const p = await api(`/informes/pyg?${parametrosPyg()}`);
     const filas = (titulo, arr, total) => `
       <tr class="grupo-fila"><td colspan="3">${titulo}</td></tr>
       ${arr.map((f) => `<tr><td style="width:110px">${esc(f.cuenta)}</td><td>${esc(f.nombre)}</td>
@@ -862,8 +894,15 @@ vistas.balance = async () => {
     <div class="toolbar">
       <label>A fecha<input type="date" id="b-hasta" value="${hastaEj()}"></label>
       <button id="b-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="b-pdf">📄 PDF</button>
+      <button id="b-excel">📊 Excel</button>
     </div>
     <div id="b-salida"></div>`);
+
+  $("#b-pdf").onclick = () => window.open("/api/v1/informes/balance?hasta=" + $("#b-hasta").value + "&formato=pdf", "_blank");
+  $("#b-excel").onclick = () => window.open("/api/v1/informes/balance?hasta=" + $("#b-hasta").value + "&formato=excel", "_blank");
+
   const generar = async () => {
     const b = await api("/informes/balance?hasta=" + $("#b-hasta").value);
     const lado = (titulo, secciones, total) => `
@@ -990,6 +1029,127 @@ vistas.ejercicios = async () => {
   };
 
   await cargar();
+};
+
+/* ---------- Modelo 303 oficial ---------- */
+
+vistas.aeat303 = async () => {
+  const triActual = Math.floor(new Date().getMonth() / 3) + 1;
+  $("#area").innerHTML = ventana("🏛️", "Modelo 303 — Declaración trimestral de IVA", `
+    <div class="toolbar">
+      <label>Ejercicio<input id="m3-ejercicio" class="num" type="number" value="${ejercicio}" style="width:80px"></label>
+      <label>Trimestre<select id="m3-trimestre">
+        ${[1, 2, 3, 4].map((t) => `<option value="${t}" ${t === triActual ? "selected" : ""}>${t}T</option>`).join("")}
+      </select></label>
+      <button id="m3-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="m3-pdf">📄 Descargar PDF</button>
+      <button id="m3-excel">📊 Descargar Excel</button>
+    </div>
+    <div id="m3-salida"></div>`);
+
+  const parametros = () => `ejercicio=${$("#m3-ejercicio").value}&trimestre=${$("#m3-trimestre").value}`;
+  const generar = async () => {
+    const m = await api(`/aeat/303?${parametros()}`);
+    $("#m3-salida").innerHTML = `
+      <p class="aviso">${esc(m.aviso)}</p>
+      <div class="grid-wrap"><table class="grid"><tbody>
+        <tr class="grupo-fila"><td colspan="3">IVA DEVENGADO</td></tr>
+        ${m.iva_devengado.desglose.map((f) => `<tr><td style="width:220px">Tipo ${f.tipo_iva} %</td>
+          <td class="num">${eur(f.base)}</td><td class="num" style="width:140px">${eur(f.cuota)}</td></tr>`).join("") ||
+          `<tr><td colspan="3" class="aviso">Sin operaciones.</td></tr>`}
+        <tr class="total-fila"><td>Casilla 27 · Cuota devengada</td><td></td><td class="num">${eur(m.iva_devengado.casilla_27_cuota_devengada)}</td></tr>
+        <tr class="grupo-fila"><td colspan="3">IVA DEDUCIBLE</td></tr>
+        <tr><td>Casilla 28 · Base</td><td class="num">${eur(m.iva_deducible.casilla_28_base)}</td><td></td></tr>
+        <tr><td>Casilla 29 · Cuota</td><td></td><td class="num">${eur(m.iva_deducible.casilla_29_cuota)}</td></tr>
+        <tr class="total-fila"><td>Casilla 44 · Total a deducir</td><td></td><td class="num">${eur(m.iva_deducible.casilla_44_total_a_deducir)}</td></tr>
+      </tbody></table></div>
+      <div class="pie-ventana"><span>Casilla 46/69 · Resultado de la liquidación:
+        <span class="dato ${m.casilla_69_resultado_liquidacion > 0 ? "neg" : "pos"}">${eur(m.casilla_69_resultado_liquidacion)}</span>
+        (${m.sentido})</span></div>`;
+  };
+  $("#m3-generar").onclick = () => generar().catch(fallo);
+  $("#m3-pdf").onclick = () => window.open(`/api/v1/aeat/303?${parametros()}&formato=pdf`, "_blank");
+  $("#m3-excel").onclick = () => window.open(`/api/v1/aeat/303?${parametros()}&formato=excel`, "_blank");
+  await generar();
+};
+
+/* ---------- Modelo 390 oficial ---------- */
+
+vistas.aeat390 = async () => {
+  $("#area").innerHTML = ventana("📊", "Modelo 390 — Resumen anual de IVA", `
+    <div class="toolbar">
+      <label>Ejercicio<input id="m9-ejercicio" class="num" type="number" value="${ejercicio}" style="width:80px"></label>
+      <button id="m9-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="m9-pdf">📄 Descargar PDF</button>
+      <button id="m9-excel">📊 Descargar Excel</button>
+    </div>
+    <div id="m9-salida"></div>`);
+
+  const parametros = () => `ejercicio=${$("#m9-ejercicio").value}`;
+  const bloque = (titulo, arr) => `
+    <tr class="grupo-fila"><td colspan="3">${titulo}</td></tr>
+    ${arr.map((f) => `<tr><td style="width:220px">Tipo ${f.tipo_iva} %</td><td class="num">${eur(f.base)}</td>
+      <td class="num" style="width:140px">${eur(f.cuota)}</td></tr>`).join("") ||
+      `<tr><td colspan="3" class="aviso">Sin operaciones.</td></tr>`}`;
+  const generar = async () => {
+    const m = await api(`/aeat/390?${parametros()}`);
+    $("#m9-salida").innerHTML = `
+      <p class="aviso">${esc(m.aviso)}</p>
+      <div class="grid-wrap"><table class="grid"><tbody>
+        ${bloque("IVA DEVENGADO (anual)", m.iva_devengado)}
+        <tr class="total-fila"><td>Total devengado</td><td></td><td class="num">${eur(m.total_devengado)}</td></tr>
+        ${bloque("IVA DEDUCIBLE (anual)", m.iva_deducible)}
+        <tr class="total-fila"><td>Total deducible</td><td></td><td class="num">${eur(m.total_deducible)}</td></tr>
+      </tbody></table></div>
+      <div class="pie-ventana"><span>Resultado anual (informativo):
+        <span class="dato">${eur(m.resultado_anual)}</span></span></div>
+      <div class="grid-wrap" style="margin-top:12px"><table class="grid"><thead>
+        <tr><th>Trimestre</th><th class="num">Resultado</th><th>Sentido</th></tr></thead><tbody>
+        ${m.resultados_trimestrales.map((r) => `<tr><td>${r.trimestre}T</td>
+          <td class="num">${eur(r.resultado)}</td><td>${esc(r.sentido)}</td></tr>`).join("")}
+      </tbody></table></div>`;
+  };
+  $("#m9-generar").onclick = () => generar().catch(fallo);
+  $("#m9-pdf").onclick = () => window.open(`/api/v1/aeat/390?${parametros()}&formato=pdf`, "_blank");
+  $("#m9-excel").onclick = () => window.open(`/api/v1/aeat/390?${parametros()}&formato=excel`, "_blank");
+  await generar();
+};
+
+/* ---------- Modelo 347 oficial ---------- */
+
+vistas.aeat347 = async () => {
+  $("#area").innerHTML = ventana("🧾", "Modelo 347 — Operaciones con terceros", `
+    <div class="toolbar">
+      <label>Ejercicio<input id="m7-ejercicio" class="num" type="number" value="${ejercicio}" style="width:80px"></label>
+      <button id="m7-generar">🔍 Consultar</button>
+      <span class="sep"></span>
+      <button id="m7-pdf">📄 Descargar PDF</button>
+      <button id="m7-excel">📊 Descargar Excel</button>
+    </div>
+    <div id="m7-salida"></div>`);
+
+  const parametros = () => `ejercicio=${$("#m7-ejercicio").value}`;
+  const generar = async () => {
+    const m = await api(`/aeat/347?${parametros()}`);
+    $("#m7-salida").innerHTML = `
+      <p class="aviso">${esc(m.aviso)} Umbral: ${eur(m.umbral)}.</p>
+      <div class="grid-wrap"><table class="grid"><thead>
+        <tr><th>NIF</th><th>Nombre</th><th>Operación</th><th class="num">Importe anual</th>
+        <th class="num">1T</th><th class="num">2T</th><th class="num">3T</th><th class="num">4T</th></tr></thead><tbody>
+        ${m.registros.map((r) => `<tr><td>${esc(r.nif)}</td><td>${esc(r.nombre)}</td><td>${esc(r.operacion)}</td>
+          <td class="num">${eur(r.importe_anual)}</td><td class="num">${eur(r.trimestres["1"])}</td>
+          <td class="num">${eur(r.trimestres["2"])}</td><td class="num">${eur(r.trimestres["3"])}</td>
+          <td class="num">${eur(r.trimestres["4"])}</td></tr>`).join("") ||
+          `<tr><td colspan="8" class="aviso">Ningún tercero supera el umbral en ${$("#m7-ejercicio").value}.</td></tr>`}
+      </tbody></table></div>
+      <div class="pie-ventana"><span>Total declarado: <span class="dato">${eur(m.total_declarado)}</span></span></div>`;
+  };
+  $("#m7-generar").onclick = () => generar().catch(fallo);
+  $("#m7-pdf").onclick = () => window.open(`/api/v1/aeat/347?${parametros()}&formato=pdf`, "_blank");
+  $("#m7-excel").onclick = () => window.open(`/api/v1/aeat/347?${parametros()}&formato=excel`, "_blank");
+  await generar();
 };
 
 /* ---------- arranque ---------- */
