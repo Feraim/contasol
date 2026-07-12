@@ -163,6 +163,58 @@ Los tres aceptan `formato=pdf|excel` igual que los informes.
 
 ---
 
+## Ejemplo completo: una sesión de principio a fin
+
+Flujo típico con `curl`, guardando la cookie de sesión en `cookies.txt`:
+
+```bash
+BASE=http://localhost:8000/api/v1
+
+# 1. Registro (crea usuario, empresa y sesión de una vez)
+curl -c cookies.txt -X POST $BASE/auth/registro \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ana@ejemplo.com","password":"contraseña123","empresa_nombre":"Panadería Ana"}'
+
+# 2. Asiento de capital inicial: 3.000 € al banco
+curl -b cookies.txt -X POST $BASE/asientos -H "Content-Type: application/json" -d '{
+  "fecha": "2026-01-02", "concepto": "Aportación inicial",
+  "apuntes": [
+    {"cuenta": "572", "debe": 3000},
+    {"cuenta": "100", "haber": 3000}
+  ]}'
+
+# 3. Alta de un cliente
+curl -b cookies.txt -X POST $BASE/terceros -H "Content-Type: application/json" \
+  -d '{"tipo":"cliente","nif":"B12345678","nombre":"Café Central SL"}'
+# → devuelve {"id": 1, ...}
+
+# 4. Factura emitida de 1.000 € + 21 % IVA (asiento automático)
+curl -b cookies.txt -X POST $BASE/facturas -H "Content-Type: application/json" -d '{
+  "tipo": "emitida", "numero": "F-2026-001", "fecha": "2026-02-10", "tercero_id": 1,
+  "lineas": [{"descripcion": "Suministro mensual", "base": 1000, "tipo_iva": 21}]}'
+# → devuelve {"id": 1, "total": 1210.0, "estado": "pendiente", "asiento_id": 2, ...}
+
+# 5. Cobro de la factura
+curl -b cookies.txt -X POST $BASE/facturas/1/liquidar \
+  -H "Content-Type: application/json" -d '{"fecha": "2026-02-20"}'
+
+# 6. Consultas
+curl -b cookies.txt "$BASE/informes/panel"                        # resumen general
+curl -b cookies.txt "$BASE/informes/pyg?desde=2026-01-01&hasta=2026-12-31"
+curl -b cookies.txt "$BASE/aeat/303?ejercicio=2026&trimestre=1"   # modelo 303 en JSON
+curl -b cookies.txt -OJ "$BASE/informes/balance?formato=pdf"      # balance en PDF
+
+# 7. (Con Ollama en marcha) Pregunta en lenguaje natural
+curl -b cookies.txt -X POST $BASE/ia/preguntar \
+  -H "Content-Type: application/json" \
+  -d '{"pregunta": "¿Cuánto IVA tengo que pagar este trimestre?"}'
+```
+
+Si el usuario pertenece a más de una empresa, añade `-H "X-Empresa-Id: 2"`
+a cualquier petición para operar sobre la empresa 2 en lugar de la primera.
+
+---
+
 Para el detalle exacto de cada campo (tipos, validaciones, ejemplos
 generados) usa siempre `/docs` con el servidor en marcha: esta tabla es un
 mapa de alto nivel, la especificación OpenAPI es la fuente de verdad.
