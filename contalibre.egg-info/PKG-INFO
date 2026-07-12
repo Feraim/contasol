@@ -1,3 +1,20 @@
+Metadata-Version: 2.4
+Name: contalibre
+Version: 0.1.0
+Summary: Contabilidad de código abierto para pymes y autónomos (España): PGC, diario, IVA, facturación, inmovilizado y API REST local.
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn[standard]>=0.29
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: pydantic>=2.6
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+Dynamic: license-file
+
 # 📒 ContaLibre
 
 **Contabilidad de código abierto para pymes y autónomos (España)**, inspirada en ContaSol. Todo funciona **en local**: servidor FastAPI + base de datos SQLite + interfaz web, sin nube ni cuentas de usuario. La API REST está pensada para que, en el futuro, un modelo de IA local consulte los datos contables.

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ContaLibre · Contabilidad de código abierto</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23e8671b'/><text x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>CL</text></svg>">
+</head>
+<body>
+  <!-- Barra de título estilo aplicación de escritorio -->
+  <div id="titlebar">
+    <span id="titlebar-logo">CL</span>
+    <span id="titlebar-texto">ContaLibre — [ <b>EMPRESA DEMO</b> · Ejercicio <span id="titlebar-ejercicio"></span> ]</span>
+    <span id="titlebar-derecha">
+      <label>Ejercicio <select id="sel-ejercicio"></select></label>
+      <a href="/docs" target="_blank" title="Documentación de la API">API</a>
+    </span>
+  </div>
+
+  <!-- Cinta de opciones -->
+  <div id="ribbon">
+    <div id="ribbon-tabs"></div>
+    <div id="ribbon-cuerpo"></div>
+  </div>
+
+  <!-- Área de trabajo -->
+  <main id="area"></main>
+
+  <!-- Barra de estado -->
+  <div id="statusbar">
+    <span>EMPRESA DEMO</span>
+    <span id="status-ejercicio"></span>
+    <span id="status-info">Base de datos SQLite local</span>
+    <span style="margin-left:auto">ContaLibre v0.1.0 · código abierto (MIT)</span>
+  </div>
+
+  <div id="modal" class="oculto"><div id="modal-caja"><div id="modal-titulo"><span id="modal-titulo-texto"></span><button id="modal-cerrar">✕</button></div><div id="modal-contenido"></div></div></div>
+  <div id="toast" class="oculto"></div>
+  <datalist id="dl-cuentas"></datalist>
+  <script src="app.js"></script>
+</body>
+</html>
